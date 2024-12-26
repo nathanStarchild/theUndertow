@@ -1,0 +1,16 @@
+precision highp float;
+precision highp int;
+
+const float PI = 3.141592653589793;
+uniform sampler2D texture;
+uniform vec2 center;
+uniform float radius;
+uniform float strength;
+varying vec2 coord;
+varying vec2 vUV;
+
+
+void main() {
+
+  gl_FragColor = vec4(vUV.x, vUV.y, 0., 1.);
+}
