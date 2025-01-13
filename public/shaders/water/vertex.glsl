@@ -15,7 +15,8 @@ const float eta = 0.7504;
 
 
 void main() {
-  vec4 info = texture2D(water, position.xy * 0.5 + 0.5);
+  //vec4 info = texture2D(water, position.xy * 0.5 + 0.5);
+  vec4 info = texture2D(water, uv);
 
   // The water position is the vertex position on which we apply the height-map
   vec3 pos = vec3(position.xy, position.z + info.r);

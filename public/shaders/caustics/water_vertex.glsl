@@ -19,7 +19,7 @@ const int MAX_ITERATIONS = 50;
 
 
 void main() {
-  vec4 waterInfo = texture2D(water, position.xy * 0.5 + 0.5);
+  vec4 waterInfo = texture2D(water, uv);
 
   // The water position is the vertex position on which we apply the height-map
   // TODO Remove the ugly hardcoded +0.8 for the water position

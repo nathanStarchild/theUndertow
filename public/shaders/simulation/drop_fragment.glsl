@@ -7,6 +7,7 @@ uniform vec2 center;
 uniform float radius;
 uniform float strength;
 varying vec2 coord;
+varying vec2 vUV;
 
 
 void main() {
@@ -19,4 +20,5 @@ void main() {
   info.r += drop * strength;
 
   gl_FragColor = info;
+  //gl_FragColor = vec4(vUV.x, info.gba);
 }
