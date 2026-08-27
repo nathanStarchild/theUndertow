@@ -2,13 +2,21 @@
   "name": "threejs-caustics",
   "version": "1.0.0",
   "description": "Try it live: https://martinrenou.github.io/threejs-caustics",
-  "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "node app.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "three": "^0.170.0",
+    "stats.js": "^0.17.0",
+    "vite": "^6.0.1"
   }
 }
