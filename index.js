@@ -25,7 +25,8 @@ console.log(`${width} x ${height}`)
 // Colors
 const black = new THREE.Color('black');
 const white = new THREE.Color('white');
-let underwaterColour = [0., 0.24, 0.47]
+let underwaterColour = [0., 0.24, 0.47];
+const waterVisible = false;
 
 function loadFile(filename) {
   return new Promise((resolve, reject) => {
@@ -986,7 +987,7 @@ function animate() {
   renderer.clear();
 
   // waterTest.mesh.visible = true;
-  water.mesh.visible = true;
+  water.mesh.visible = waterVisible;
   renderer.render(scene, camera);
 
   controls.update();
