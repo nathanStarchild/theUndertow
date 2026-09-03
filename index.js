@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import Stats from 'stats.js';
 import { createRoofGeometry, ROOF_RADIUS, ROOF_APEX_HEIGHT } from './roof.js';
+import { createWaterGeometry } from './waterSurface.js';
 
 const stats = new Stats();
 // stats.showPanel(0);
@@ -26,7 +27,7 @@ console.log(`${width} x ${height}`)
 const black = new THREE.Color('black');
 const white = new THREE.Color('white');
 let underwaterColour = [0., 0.24, 0.47];
-const waterVisible = true;
+const waterVisible = false;
 
 function loadFile(filename) {
   return new Promise((resolve, reject) => {
@@ -44,7 +45,7 @@ function loadFile(filename) {
 const waterPosition = new THREE.Vector3(0, 0, 0);
 const near = 0.1;
 // far is widened (vs. the original 2.) to reach the mirrored roof's lowest point at z=-1.2.
-const far = 10.;
+const far = 20.;
 const waterSize = 2048;
 // const waterSize = 4096;
 // sclx/scly stay tied to the roof's real radius so the water-sim domain and light frustum actually cover the whole roof.
@@ -63,9 +64,9 @@ const light = [0., 0., -1.];
 
 // const lightCamera = new THREE.OrthographicCamera(-1.7, 1.7, 0.9, -0.9, near, far);
 // const lightCamera = new THREE.OrthographicCamera(-1.7, 1.9, 0.9, -0.9, near, far);
-const lightFrustumSize = ROOF_RADIUS + 0.1;
+const lightFrustumSize = ROOF_RADIUS + 0.1 - 1.;
 const lightCamera = new THREE.OrthographicCamera(-lightFrustumSize, lightFrustumSize, lightFrustumSize, -lightFrustumSize, near, far);
-lightCamera.position.set(0., 0.0, 1.5);
+lightCamera.position.set(0., 0.0, 0.1);
 lightCamera.lookAt(0, 0, 0);
 
 // Create Renderer
@@ -115,6 +116,7 @@ const targetmesh = new THREE.Mesh(targetgeometry);
 // Geometries
 const waterWidth = 4.2;
 const waterGeometry = new THREE.PlaneGeometry(waterWidth, waterWidth, waterSize, waterSize);
+// const waterGeometry = createWaterGeometry(ROOF_RADIUS, 512);
 const vertices = new Float32Array([
   -1, -1, -1,
   -1, -1, 1,
@@ -465,8 +467,9 @@ class WaterSimulation {
   constructor() {
     this._camera = new THREE.OrthographicCamera(0, 1, 1, 0, 0, 2000);
 
-    this._geometry = new THREE.PlaneGeometry(waterWidth, waterWidth);
-    // this._geometry.scale(sclx, scly, 1.)
+    // This must stay a plain [-1,1] quad: simulation/vertex.glsl derives its sample coord
+    // directly from position.xy, it isn't the visible water shape.
+    this._geometry = new THREE.PlaneGeometry(2, 2);
     // console.log(this._geometry.parameters)
 
     this._targetA = new THREE.WebGLRenderTarget(waterSize, waterSize, {type: THREE.FloatType});
@@ -592,9 +595,10 @@ class Water {
 class EnvironmentMap {
 
   constructor() {
-    // this.size = 1024*4;
-    this.size = 1024;
-    this.target = new THREE.WebGLRenderTarget(this.size, this.size, {type: THREE.FloatType});
+    this.size = 1024*4;
+    this.target = new THREE.WebGLRenderTarget(this.size*2, this.size*2, {type: THREE.FloatType});
+    // this.size = 1024;
+    // this.target = new THREE.WebGLRenderTarget(this.size, this.size, {type: THREE.FloatType});
 
     const shadersPromises = [
       loadFile('shaders/environment_mapping/vertex.glsl'),
@@ -665,7 +669,7 @@ class Caustics {
   constructor() {
     this.target = new THREE.WebGLRenderTarget(waterSize * 4., waterSize * 4., {type: THREE.FloatType});
 
-    this._waterGeometry = new THREE.PlaneGeometry(2, 2, waterSize, waterSize);
+    this._waterGeometry = new THREE.PlaneGeometry(ROOF_RADIUS*2, ROOF_RADIUS*2, waterSize, waterSize);
     this._waterGeometry.scale(sclx, scly, 1.)
     // this._waterGeometry.texture.wrapS = THREE.MirroredRepeatWrapping
 
@@ -682,6 +686,7 @@ class Caustics {
           env: { value: null },
           water: { value: null },
           deltaEnvTexture: { value: null },
+          waterHeight: { value: waterPosition.z }
         },
         vertexShader: waterVertexShader,
         fragmentShader: waterFragmentShader,

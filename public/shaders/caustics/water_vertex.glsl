@@ -3,6 +3,7 @@ uniform vec3 light;
 uniform sampler2D water;
 uniform sampler2D env;
 uniform float deltaEnvTexture;
+uniform float waterHeight;
 
 varying vec3 oldPosition;
 varying vec3 newPosition;
@@ -24,7 +25,7 @@ void main() {
 
   // The water position is the vertex position on which we apply the height-map
   // TODO Remove the ugly hardcoded +0.8 for the water position
-  vec3 waterPosition = vec3(position.xy, position.z + waterInfo.r + 0.8);
+  vec3 waterPosition = vec3(position.xy, position.z + waterInfo.r + waterHeight);
   vec3 waterNormal = normalize(vec3(waterInfo.b, sqrt(1.0 - dot(waterInfo.ba, waterInfo.ba)), waterInfo.a)).xzy;
 
   // This is the initial position: the ray starting point

@@ -32,3 +32,4 @@ export function createRoofGeometry(radius = ROOF_RADIUS, apexHeight = ROOF_APEX_
   geometry.computeBoundingSphere();
   return geometry;
 }
+
