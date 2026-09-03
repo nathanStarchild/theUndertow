@@ -15,7 +15,8 @@ const float eta = 0.7504;
 // TODO Make this a uniform
 // This is the maximum iterations when looking for the ray intersection with the environment,
 // if after this number of attempts we did not find the intersection, the result will be wrong.
-const int MAX_ITERATIONS = 50;
+// Raised from 50: the hexayurt roof is much deeper (apex ~2m below the water) than the original test floor.
+const int MAX_ITERATIONS = 200;
 
 
 void main() {

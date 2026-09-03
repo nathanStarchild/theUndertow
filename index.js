@@ -63,7 +63,7 @@ lightCamera.lookAt(0, 0, 0);
 // Create Renderer
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, width / height, 0.01, 100);
-camera.position.set(0., 0., 5);
+camera.position.set(0., 10., 5);
 camera.up.set(0, 0, 1);
 scene.add(camera);
 
@@ -986,7 +986,7 @@ function animate() {
   renderer.clear();
 
   // waterTest.mesh.visible = true;
-  // water.mesh.visible = true;
+  water.mesh.visible = true;
   renderer.render(scene, camera);
 
   controls.update();
