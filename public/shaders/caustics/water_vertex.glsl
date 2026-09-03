@@ -9,6 +9,7 @@ varying vec3 oldPosition;
 varying vec3 newPosition;
 varying float waterDepth;
 varying float depth;
+varying float causticsValid;
 
 // Air refractive index / Water refractive index
 const float eta = 0.7504;
@@ -19,6 +20,15 @@ const float eta = 0.7504;
 // Raised from 50: the hexayurt roof is much deeper (apex ~2m below the water) than the original test floor.
 const int MAX_ITERATIONS = 50;
 
+// The environment map is cleared to (0,0,0,0) wherever it holds no geometry: outside the light
+// camera's frustum, and outside the roof silhouette within that frustum (e.g. where the frustum
+// crops through a panel). Treat both cases as "nothing to hit" instead of a false hit at the
+// cleared position, which causes streaks radiating from the world origin.
+bool isValidEnvironmentSample(vec2 sampleCoords, vec4 sampleValue) {
+  bool inBounds = sampleCoords.x >= 0.0 && sampleCoords.x <= 1.0 &&
+                  sampleCoords.y >= 0.0 && sampleCoords.y <= 1.0;
+  return inBounds && sampleValue.w != 0.0;
+}
 
 void main() {
   vec4 waterInfo = texture2D(water, uv);
@@ -45,12 +55,15 @@ void main() {
   waterDepth = 0.5 + 0.5 * projectedWaterPosition.z / projectedWaterPosition.w;
   float currentDepth = projectedWaterPosition.z;
   vec4 environment = texture2D(env, coords);
+  bool environmentValid = isValidEnvironmentSample(coords, environment);
 
   // This factor will scale the delta parameters so that we move from one pixel to the other in the env map
   float factor = deltaEnvTexture / length(refractedDirection.xy);
 
   vec2 deltaDirection = refractedDirection.xy * factor;
   float deltaDepth = refractedDirection.z * factor;
+
+  bool hit = false;
 
   for (int i = 0; i < MAX_ITERATIONS; i++) {
         // Move the coords in the direction of the refraction
@@ -59,16 +72,34 @@ void main() {
     currentDepth += deltaDepth;
 
     // End of loop condition: The ray has hit the environment
+    //if (environmentValid && environment.w <= currentDepth) {
     if (environment.w <= currentDepth) {
+
+      hit = true;
       break;
     }
 
+    // The ray has left valid environment data (off-frustum or off-roof): stop marching.
+    //if (!environmentValid) {
+    //  break;
+    //}
+
+    vec2 nextCoords = 0.5 + 0.5 * currentPosition;
+
     environment = texture2D(env, 0.5 + 0.5 * currentPosition);
+    //environment = texture2D(env, nextCoords);
+    environmentValid = isValidEnvironmentSample(nextCoords, environment);
   }
 
+  causticsValid = hit ? 1. : 0.;
   newPosition = environment.xyz;
+  //newPosition = hit ? environment.xyz : waterPosition;
 
   vec4 projectedEnvPosition = projectionMatrix * viewMatrix * vec4(newPosition, 1.0);
+
+  //vec4 projectedEnvPosition = hit
+  //    ? projectionMatrix * viewMatrix * vec4(newPosition, 1.0)
+  //    : projectedWaterPosition;
   depth = 0.5 + 0.5 * projectedEnvPosition.z / projectedEnvPosition.w;
 
   gl_Position = projectedEnvPosition;

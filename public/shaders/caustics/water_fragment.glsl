@@ -5,6 +5,7 @@ varying vec3 oldPosition;
 varying vec3 newPosition;
 varying float waterDepth;
 varying float depth;
+varying float causticsValid;
 
 
 void main() {
