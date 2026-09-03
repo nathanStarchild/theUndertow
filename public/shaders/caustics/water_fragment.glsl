@@ -8,6 +8,8 @@ varying float depth;
 
 
 void main() {
+  if (causticsValid < 0.5) discard;
+
   float causticsIntensity = 0.;
 
   if (depth >= waterDepth) {

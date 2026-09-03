@@ -42,10 +42,10 @@ function loadFile(filename) {
 // Constants
 // Water surface stays at its original height; the roof geometry is mirrored to sit below it, playing the floor's role.
 // const waterPosition = new THREE.Vector3(0, 0, 0.8);
-const waterPosition = new THREE.Vector3(0, 0, 0);
-const near = 0.1;
+const waterPosition = new THREE.Vector3(0, 0, 0.1);
+const near = 0.;
 // far is widened (vs. the original 2.) to reach the mirrored roof's lowest point at z=-1.2.
-const far = 20.;
+const far = 100.;
 const waterSize = 2048;
 // const waterSize = 4096;
 // sclx/scly stay tied to the roof's real radius so the water-sim domain and light frustum actually cover the whole roof.
@@ -57,16 +57,31 @@ const scly = 1.;
 const up = new THREE.Vector3( 0, 1, 0 );
 let axis = new THREE.Vector3( );
 
+// Debug controls: space bar pauses all caustics-affecting updates so a single frame can be
+// inspected; 0-3 pick what the Debug overlay shows on screen (see keydown listener below).
+let paused = false;
+let debugView = 0;
+const debugViewNames = ['scene', 'water heightfield', 'environment map', 'caustics'];
+window.addEventListener('keydown', (event) => {
+  if (event.key === ' ') {
+    paused = !paused;
+    console.log(paused ? 'paused' : 'resumed');
+  } else if (event.key >= '0' && event.key <= '3') {
+    debugView = parseInt(event.key, 10);
+    console.log('debug view:', debugViewNames[debugView]);
+  }
+});
+
 // Create directional light
 // TODO Replace this by a THREE.DirectionalLight and use the provided matrix (check that it's an Orthographic matrix as expected)
 const light = [0., 0., -1.];
 // Frustum is widened (vs. the original 1.7x0.9) to cover the roof's full ROOF_RADIUS footprint.
 
 // const lightCamera = new THREE.OrthographicCamera(-1.7, 1.7, 0.9, -0.9, near, far);
-// const lightCamera = new THREE.OrthographicCamera(-1.7, 1.9, 0.9, -0.9, near, far);
-const lightFrustumSize = ROOF_RADIUS + 0.1 - 1.;
-const lightCamera = new THREE.OrthographicCamera(-lightFrustumSize, lightFrustumSize, lightFrustumSize, -lightFrustumSize, near, far);
-lightCamera.position.set(0., 0.0, 0.1);
+const lightCamera = new THREE.OrthographicCamera(-1.7, 1.7, 0.5, -0.5, near, far);
+const lightFrustumSize = ROOF_RADIUS + 0.1;
+// const lightCamera = new THREE.OrthographicCamera(-lightFrustumSize, lightFrustumSize, lightFrustumSize, -lightFrustumSize, near, far);
+lightCamera.position.set(0., 0.0, 0.8);
 lightCamera.lookAt(0, 0, 0);
 
 // Create Renderer
@@ -100,6 +115,11 @@ const temporaryRenderTarget = new THREE.WebGLRenderTarget(width, height);
 
 // Clock
 const clock = new THREE.Clock();
+
+// Cached so the Debug overlay can keep showing the last computed textures while paused.
+let cachedWaterTexture = null;
+let cachedEnvironmentMapTexture = null;
+let cachedCausticsTexture = null;
 
 // Ray caster
 const raycaster = new THREE.Raycaster();
@@ -158,8 +178,10 @@ const indices = new Uint32Array([
 
 // Environment
 // Mirrored in z so the ceiling shape sits below the water plane, playing the floor's role like the original flat floor.
+// const roofGeometry = createRoofGeometry(ROOF_RADIUS, ROOF_APEX_HEIGHT);
 const roofGeometry = createRoofGeometry(ROOF_RADIUS, ROOF_APEX_HEIGHT);
 roofGeometry.scale(1, 1, -1);
+// roofGeometry.translate(0, 0, -0.1);
 roofGeometry.computeVertexNormals();
 
 const objLoader = new OBJLoader();
@@ -595,8 +617,9 @@ class Water {
 class EnvironmentMap {
 
   constructor() {
-    this.size = 1024*4;
-    this.target = new THREE.WebGLRenderTarget(this.size*2, this.size*2, {type: THREE.FloatType});
+    this.size = 1024;
+    // this.size = 2048;
+    this.target = new THREE.WebGLRenderTarget(this.size, this.size, {type: THREE.FloatType});
     // this.size = 1024;
     // this.target = new THREE.WebGLRenderTarget(this.size, this.size, {type: THREE.FloatType});
 
@@ -667,7 +690,7 @@ class EnvironmentMap {
 class Caustics {
 
   constructor() {
-    this.target = new THREE.WebGLRenderTarget(waterSize * 4., waterSize * 4., {type: THREE.FloatType});
+    this.target = new THREE.WebGLRenderTarget(waterSize, waterSize, {type: THREE.FloatType});
 
     this._waterGeometry = new THREE.PlaneGeometry(ROOF_RADIUS*2, ROOF_RADIUS*2, waterSize, waterSize);
     this._waterGeometry.scale(sclx, scly, 1.)
@@ -839,6 +862,7 @@ class Debug {
       this._material = new THREE.RawShaderMaterial({
         uniforms: {
             texture: { value: null },
+            mode: { value: 0 },
         },
         vertexShader: vertexShader,
         fragmentShader: fragmentShader,
@@ -849,8 +873,10 @@ class Debug {
     });
   }
 
-  draw(renderer, texture) {
+  // mode: 0 = raw xyz, 1 = normalized depth grayscale.
+  draw(renderer, texture, mode = 0) {
     this._material.uniforms['texture'].value = texture;
+    this._material.uniforms['mode'].value = mode;
 
     const oldTarget = renderer.getRenderTarget();
 
@@ -914,76 +940,75 @@ function shiftWaterColour(col){
 function animate() {
   stats.begin();
 
-  // shark.translate(0.001, 0, 0);
-  movingGeometries.forEach(function(obj){
-    obj.fraction += obj.increment
-    if (obj.fraction > 1) {
-      obj.fraction = 0
+  if (!paused) {
+    // shark.translate(0.001, 0, 0);
+    movingGeometries.forEach(function(obj){
+      obj.fraction += obj.increment
+      if (obj.fraction > 1) {
+        obj.fraction = 0
+      }
+
+      obj.newPosition = obj.path.getPoint( obj.fraction );
+      obj.tangent = obj.path.getTangent( obj.fraction );
+      obj.envMesh.position.copy( obj.newPosition );	
+      obj.envMapMesh.position.copy( obj.newPosition );	
+      // console.log(environmentMap._meshes[3].position)
+      axis.crossVectors( up, obj.tangent ).normalize( );	
+      obj.radians = Math.acos( up.dot( obj.tangent ) );
+      obj.envMesh.quaternion.setFromAxisAngle( axis, obj.radians );
+      obj.envMapMesh.quaternion.setFromAxisAngle( axis, obj.radians );
+      obj.envMapMesh.updateMatrixWorld();
+
+
+      obj.wakeCounter += 1
+      if (obj.wakeCounter > 10000) {
+        obj.wakeCounter = 0
+      }
+      if (obj.hasWake & (obj.wakeCounter % 15  == 0)) {
+        // console.log("drop")
+        const direction = new THREE.Vector3( 0, -1, 0 ).applyQuaternion( obj.envMesh.quaternion ); 
+        const rad = obj.envMesh.geometry.boundingSphere.radius
+        // console.log("")
+        // console.log(obj.newPosition)
+        obj.newPosition.add( direction.multiplyScalar( rad ) );
+        // console.log(obj.newPosition)
+        waterSimulation.addDrop(
+          renderer,
+          obj.newPosition.x/sclx,
+          obj.newPosition.y/sclx,
+          0.01,
+          -0.02
+        )
+      }
+    })
+
+    environment.updateUnderwaterColour([
+      0., 
+      shiftWaterColour(waterColourG),
+      shiftWaterColour(waterColourB),
+    ]);
+    // console.log(underwaterColour)
+
+    // Update the water
+    if (clock.getElapsedTime() > 0.032) {
+    // if (false) {
+      waterSimulation.stepSimulation(renderer);
+
+      cachedWaterTexture = waterSimulation.target.texture;
+
+      water.setHeightTexture(cachedWaterTexture);
+
+      environmentMap.render(renderer);
+      cachedEnvironmentMapTexture = environmentMap.target.texture;
+
+      caustics.setTextures(cachedWaterTexture, cachedEnvironmentMapTexture);
+      caustics.render(renderer);
+      cachedCausticsTexture = caustics.target.texture;
+
+      environment.updateCaustics(cachedCausticsTexture);
+
+      clock.start();
     }
-
-    obj.newPosition = obj.path.getPoint( obj.fraction );
-    obj.tangent = obj.path.getTangent( obj.fraction );
-    obj.envMesh.position.copy( obj.newPosition );	
-    obj.envMapMesh.position.copy( obj.newPosition );	
-    // console.log(environmentMap._meshes[3].position)
-    axis.crossVectors( up, obj.tangent ).normalize( );	
-    obj.radians = Math.acos( up.dot( obj.tangent ) );
-    obj.envMesh.quaternion.setFromAxisAngle( axis, obj.radians );
-    obj.envMapMesh.quaternion.setFromAxisAngle( axis, obj.radians );
-    obj.envMapMesh.updateMatrixWorld();
-
-
-    obj.wakeCounter += 1
-    if (obj.wakeCounter > 10000) {
-      obj.wakeCounter = 0
-    }
-    if (obj.hasWake & (obj.wakeCounter % 15  == 0)) {
-      // console.log("drop")
-      const direction = new THREE.Vector3( 0, -1, 0 ).applyQuaternion( obj.envMesh.quaternion ); 
-      const rad = obj.envMesh.geometry.boundingSphere.radius
-      // console.log("")
-      // console.log(obj.newPosition)
-      obj.newPosition.add( direction.multiplyScalar( rad ) );
-      // console.log(obj.newPosition)
-      waterSimulation.addDrop(
-        renderer,
-        obj.newPosition.x/sclx,
-        obj.newPosition.y/sclx,
-        0.01,
-        -0.02
-      )
-    }
-  })
-
-  environment.updateUnderwaterColour([
-    0., 
-    shiftWaterColour(waterColourG),
-    shiftWaterColour(waterColourB),
-  ]);
-  // console.log(underwaterColour)
-
-  // Update the water
-  if (clock.getElapsedTime() > 0.032) {
-  // if (false) {
-    waterSimulation.stepSimulation(renderer);
-
-    const waterTexture = waterSimulation.target.texture;
-
-    water.setHeightTexture(waterTexture);
-
-    environmentMap.render(renderer);
-    const environmentMapTexture = environmentMap.target.texture;
-
-    caustics.setTextures(waterTexture, environmentMapTexture);
-    caustics.render(renderer);
-    const causticsTexture = caustics.target.texture;
-
-    // debug.draw(renderer, environmentMapTexture);
-    // debug.draw(renderer, causticsTexture);
-
-    environment.updateCaustics(causticsTexture);
-
-    clock.start();
   }
 
   // Render everything but the refractive water
@@ -1005,6 +1030,13 @@ function animate() {
   water.mesh.visible = waterVisible;
   renderer.render(scene, camera);
 
+  if (debugView !== 0) {
+    const debugTexture = [null, cachedWaterTexture, cachedEnvironmentMapTexture, cachedCausticsTexture][debugView];
+    // Environment map's xyz isn't informative on its own; show its depth channel instead.
+    const debugMode = debugView === 2 ? 1 : 0;
+    if (debugTexture) debug.draw(renderer, debugTexture, debugMode);
+  }
+
   controls.update();
 
   stats.end();
@@ -1024,6 +1056,7 @@ function onMouseMove(event) {
 
   const intersects = raycaster.intersectObject(targetmesh);
 
+  if (paused) return;
   for (let intersect of intersects) {
     waterSimulation.addDrop(renderer, intersect.point.x, intersect.point.y, 0.03, 0.02);
   }
@@ -1036,13 +1069,15 @@ function vary(val, variance){
 function waveGen(x, y, radius, strength, interval, variance) {
   var wave = function() {
     // console.log(x, y, radius, strength, interval, variance)
-    waterSimulation.addDrop(
-      renderer,
-      vary(x, variance),
-      vary(y, variance),
-      vary(radius, variance),
-      vary(strength, variance),
-    )
+    if (!paused) {
+      waterSimulation.addDrop(
+        renderer,
+        vary(x, variance),
+        vary(y, variance),
+        vary(radius, variance),
+        vary(strength, variance),
+      )
+    }
     // console.log(Math.floor(vary(interval, variance)))
     setTimeout(wave, Math.floor(vary(interval, variance))) 
   }

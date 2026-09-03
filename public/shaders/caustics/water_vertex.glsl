@@ -25,7 +25,7 @@ void main() {
 
   // The water position is the vertex position on which we apply the height-map
   // TODO Remove the ugly hardcoded +0.8 for the water position
-  vec3 waterPosition = vec3(position.xy, position.z + waterInfo.r + waterHeight);
+  vec3 waterPosition = vec3(position.xy, position.z + waterInfo.r + 0.8);
   vec3 waterNormal = normalize(vec3(waterInfo.b, sqrt(1.0 - dot(waterInfo.ba, waterInfo.ba)), waterInfo.a)).xzy;
 
   // This is the initial position: the ray starting point
@@ -53,7 +53,8 @@ void main() {
   float deltaDepth = refractedDirection.z * factor;
 
   for (int i = 0; i < MAX_ITERATIONS; i++) {
-    // Move the coords in the direction of the refraction
+        // Move the coords in the direction of the refraction
+
     currentPosition += deltaDirection;
     currentDepth += deltaDepth;
 

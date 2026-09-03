@@ -9,7 +9,7 @@ varying vec3 lightPosition;
 // a slope reads a different (usually shallower) depth than the receiving fragment's own depth.
 //const float bias = 0.5;
 //const float bias = 0.001;
-const float bias = 0.1;
+const float bias = 0.01;
 
 
 const vec2 resolution = vec2(1024.);
