@@ -26,7 +26,7 @@ console.log(`${width} x ${height}`)
 const black = new THREE.Color('black');
 const white = new THREE.Color('white');
 let underwaterColour = [0., 0.24, 0.47];
-const waterVisible = false;
+const waterVisible = true;
 
 function loadFile(filename) {
   return new Promise((resolve, reject) => {
@@ -40,14 +40,18 @@ function loadFile(filename) {
 
 // Constants
 // Water surface stays at its original height; the roof geometry is mirrored to sit below it, playing the floor's role.
-const waterPosition = new THREE.Vector3(0, 0, 0.8);
-const near = 0.;
+// const waterPosition = new THREE.Vector3(0, 0, 0.8);
+const waterPosition = new THREE.Vector3(0, 0, 0);
+const near = 0.1;
 // far is widened (vs. the original 2.) to reach the mirrored roof's lowest point at z=-1.2.
-const far = 3.5;
+const far = 10.;
 const waterSize = 2048;
+// const waterSize = 4096;
 // sclx/scly stay tied to the roof's real radius so the water-sim domain and light frustum actually cover the whole roof.
-const sclx = ROOF_RADIUS;
-const scly = ROOF_RADIUS;
+// const sclx = ROOF_RADIUS;
+// const scly = ROOF_RADIUS;
+const sclx = 1.;
+const scly = 1.;
 
 const up = new THREE.Vector3( 0, 1, 0 );
 let axis = new THREE.Vector3( );
@@ -56,6 +60,9 @@ let axis = new THREE.Vector3( );
 // TODO Replace this by a THREE.DirectionalLight and use the provided matrix (check that it's an Orthographic matrix as expected)
 const light = [0., 0., -1.];
 // Frustum is widened (vs. the original 1.7x0.9) to cover the roof's full ROOF_RADIUS footprint.
+
+// const lightCamera = new THREE.OrthographicCamera(-1.7, 1.7, 0.9, -0.9, near, far);
+// const lightCamera = new THREE.OrthographicCamera(-1.7, 1.9, 0.9, -0.9, near, far);
 const lightFrustumSize = ROOF_RADIUS + 0.1;
 const lightCamera = new THREE.OrthographicCamera(-lightFrustumSize, lightFrustumSize, lightFrustumSize, -lightFrustumSize, near, far);
 lightCamera.position.set(0., 0.0, 1.5);
@@ -64,7 +71,8 @@ lightCamera.lookAt(0, 0, 0);
 // Create Renderer
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, width / height, 0.01, 100);
-camera.position.set(0., 10., 5);
+// camera.position.set(0., 0., 5.);
+camera.position.set(0., 0., 5);
 camera.up.set(0, 0, 1);
 scene.add(camera);
 
@@ -105,7 +113,8 @@ for (let i = 0; i < positions.count; i++) {
 const targetmesh = new THREE.Mesh(targetgeometry);
 
 // Geometries
-const waterGeometry = new THREE.PlaneGeometry(2, 2, waterSize, waterSize);
+const waterWidth = 4.2;
+const waterGeometry = new THREE.PlaneGeometry(waterWidth, waterWidth, waterSize, waterSize);
 const vertices = new Float32Array([
   -1, -1, -1,
   -1, -1, 1,
@@ -456,7 +465,7 @@ class WaterSimulation {
   constructor() {
     this._camera = new THREE.OrthographicCamera(0, 1, 1, 0, 0, 2000);
 
-    this._geometry = new THREE.PlaneGeometry(2, 2);
+    this._geometry = new THREE.PlaneGeometry(waterWidth, waterWidth);
     // this._geometry.scale(sclx, scly, 1.)
     // console.log(this._geometry.parameters)
 
@@ -583,6 +592,7 @@ class Water {
 class EnvironmentMap {
 
   constructor() {
+    // this.size = 1024*4;
     this.size = 1024;
     this.target = new THREE.WebGLRenderTarget(this.size, this.size, {type: THREE.FloatType});
 
@@ -653,7 +663,7 @@ class EnvironmentMap {
 class Caustics {
 
   constructor() {
-    this.target = new THREE.WebGLRenderTarget(waterSize * 3., waterSize * 3., {type: THREE.FloatType});
+    this.target = new THREE.WebGLRenderTarget(waterSize * 4., waterSize * 4., {type: THREE.FloatType});
 
     this._waterGeometry = new THREE.PlaneGeometry(2, 2, waterSize, waterSize);
     this._waterGeometry.scale(sclx, scly, 1.)
@@ -1053,7 +1063,8 @@ Promise.all(loaded).then(() => {
   // const envGeometries = [roofGeometry, rock1, rock2];
   const envGeometries = [roofGeometry];
 
-  movingGeometries = [shark, boat1, boat2]
+  // movingGeometries = [shark, boat1, boat2]
+  movingGeometries = [shark, boat1]
 
   environmentMap.setGeometries(envGeometries);
   environment.setGeometries(envGeometries);
