@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import Stats from 'stats.js';
+import { createRoofGeometry, ROOF_RADIUS, ROOF_APEX_HEIGHT } from './roof.js';
 
 const stats = new Stats();
 // stats.showPanel(0);
@@ -37,28 +38,31 @@ function loadFile(filename) {
 }
 
 // Constants
-const waterPosition = new THREE.Vector3(0, 0, 0.8);
-const near = 0.;
-const far = 2.;
+// Water surface sits at the eaves (z=0); the yurt is inverted so water fills up to the roof apex.
+const waterPosition = new THREE.Vector3(0, 0, 0);
+const near = 0.1;
+const far = 4.;
 const waterSize = 2048;
-const sclx = 2.2;
-const scly = 2.2;
+const sclx = ROOF_RADIUS;
+const scly = ROOF_RADIUS;
 
 const up = new THREE.Vector3( 0, 1, 0 );
 let axis = new THREE.Vector3( );
 
 // Create directional light
 // TODO Replace this by a THREE.DirectionalLight and use the provided matrix (check that it's an Orthographic matrix as expected)
-const light = [0., 0., -1.];
-const lightCamera = new THREE.OrthographicCamera(-1.7, 1.7, 0.9, -0.9, near, far);
-// const lightCamera = new THREE.OrthographicCamera(-1.2, 1.2, 1.2, -1.2, near, far);
-lightCamera.position.set(0., 0.0, 1.5);
+const light = [0., 0., 1.];
+const lightFrustumSize = ROOF_RADIUS + 0.1;
+const lightCamera = new THREE.OrthographicCamera(-lightFrustumSize, lightFrustumSize, lightFrustumSize, -lightFrustumSize, near, far);
+// Light lives below the water plane and shines up through it toward the roof.
+lightCamera.position.set(0., 0.0, -1.5);
 lightCamera.lookAt(0, 0, 0);
 
 // Create Renderer
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, width / height, 0.01, 100);
-camera.position.set(0., 0., 1.2);
+// Preview camera sits below the eaves, inside the room, looking up at the roof.
+camera.position.set(0., 0., -1.2);
 camera.up.set(0, 0, 1);
 scene.add(camera);
 
@@ -140,7 +144,7 @@ const indices = new Uint32Array([
 ]);
 
 // Environment
-const floorGeometry = new THREE.PlaneGeometry(100, 100, 1, 1);
+const roofGeometry = createRoofGeometry(ROOF_RADIUS, ROOF_APEX_HEIGHT);
 
 const objLoader = new OBJLoader();
 let shark;
@@ -151,7 +155,8 @@ const sharkLoaded = new Promise((resolve) => {
     sharkGeometry.scale(0.04, 0.04, 0.04);
     sharkGeometry.rotateX(-Math.PI / 2.);
     // sharkGeometry.rotateZ(-Math.PI / 2.);
-    sharkGeometry.translate(0, 0, 0.4);
+    // Water now fills upward from the eaves (z=0) to the apex (z=1.2); keep the shark mid-water.
+    sharkGeometry.translate(0, 0, 0.8);
 
     // const sharkPath = new THREE.CurvePath();
 
@@ -211,7 +216,7 @@ const boatLoaded = new Promise((resolve) => {
     boatGeometry.scale(0.0015, 0.0015, 0.0015);
     boatGeometry.rotateX(-Math.PI);
     boatGeometry.rotateZ(Math.PI / 2.);
-    boatGeometry.translate(0, 0, 0);
+    boatGeometry.translate(0, 0, 0.9);
 
     // const sharkPath = new THREE.CurvePath();
 
@@ -271,7 +276,7 @@ const boat2Loaded = new Promise((resolve) => {
     boatGeometry.rotateZ(Math.PI / 2.);
     boatGeometry.rotateX(-Math.PI/ 2.);
     boatGeometry.rotateY(-Math.PI/ 2.);
-    boatGeometry.translate(0.0, 0, 0.15);
+    boatGeometry.translate(0.0, 0, 1.0);
 
     // const sharkPath = new THREE.CurvePath();
 
@@ -1040,8 +1045,8 @@ const loaded = [
 ];
 
 Promise.all(loaded).then(() => {
-  // const envGeometries = [floorGeometry, rock1, rock2];
-  const envGeometries = [floorGeometry];
+  // const envGeometries = [roofGeometry, rock1, rock2];
+  const envGeometries = [roofGeometry];
 
   movingGeometries = [shark, boat1, boat2]
 
