@@ -23,10 +23,11 @@ void main() {
 
     float ratio;
 
-    // Prevent dividing by zero (debug NVidia drivers)
+    // Prevent dividing by zero (debug NVidia drivers). A merely large finite ratio still
+    // blows out the PCF blur downstream (it averages this texel with its neighbors), so cap
+    // it at a value that's bright but not absurd rather than the largest finite float.
     if (newArea == 0.) {
-      // Arbitrary large value
-      ratio = 2.0e+20;
+      ratio = 50.;
     } else {
       ratio = oldArea / newArea;
     }

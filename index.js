@@ -1158,7 +1158,7 @@ function onMouseMove(event) {
 
   if (paused) return;
   for (let intersect of intersects) {
-    waterSimulation.addDrop(renderer, intersect.point.x, intersect.point.y, 0.03, 0.02);
+    waterSimulation.addDrop(renderer, intersect.point.x, intersect.point.y, 0.03, 0.01);
   }
 }
 
