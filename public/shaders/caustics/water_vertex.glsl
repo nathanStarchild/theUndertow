@@ -72,35 +72,37 @@ void main() {
     currentDepth += deltaDepth;
 
     // End of loop condition: The ray has hit the environment
-    //if (environmentValid && environment.w <= currentDepth) {
-    if (environment.w <= currentDepth) {
+    if (environmentValid && environment.w <= currentDepth) {
+    //if (environment.w <= currentDepth) {
 
       hit = true;
       break;
     }
 
     // The ray has left valid environment data (off-frustum or off-roof): stop marching.
-    //if (!environmentValid) {
-    //  break;
-    //}
+    if (!environmentValid) {
+      break;
+    }
 
     vec2 nextCoords = 0.5 + 0.5 * currentPosition;
-
-    environment = texture2D(env, 0.5 + 0.5 * currentPosition);
-    //environment = texture2D(env, nextCoords);
+    environment = texture2D(env, nextCoords);
     environmentValid = isValidEnvironmentSample(nextCoords, environment);
+
+    //environment = texture2D(env, 0.5 + 0.5 * currentPosition);
   }
 
   causticsValid = hit ? 1. : 0.;
-  newPosition = environment.xyz;
-  //newPosition = hit ? environment.xyz : waterPosition;
 
-  vec4 projectedEnvPosition = projectionMatrix * viewMatrix * vec4(newPosition, 1.0);
+  newPosition = hit ? environment.xyz : waterPosition;
+  vec4 projectedEnvPosition = hit
+      ? projectionMatrix * viewMatrix * vec4(newPosition, 1.0)
+      : projectedWaterPosition;
 
-  //vec4 projectedEnvPosition = hit
-  //    ? projectionMatrix * viewMatrix * vec4(newPosition, 1.0)
-  //    : projectedWaterPosition;
+  //newPosition = environment.xyz;
+  //vec4 projectedEnvPosition = projectionMatrix * viewMatrix * vec4(newPosition, 1.0);
+
   depth = 0.5 + 0.5 * projectedEnvPosition.z / projectedEnvPosition.w;
+
 
   gl_Position = projectedEnvPosition;
 }

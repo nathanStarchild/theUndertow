@@ -78,9 +78,9 @@ const light = [0., 0., -1.];
 // Frustum is widened (vs. the original 1.7x0.9) to cover the roof's full ROOF_RADIUS footprint.
 
 // const lightCamera = new THREE.OrthographicCamera(-1.7, 1.7, 0.9, -0.9, near, far);
-const lightCamera = new THREE.OrthographicCamera(-1.7, 1.7, 0.5, -0.5, near, far);
+// const lightCamera = new THREE.OrthographicCamera(-1.7, 1.7, 0.5, -0.5, near, far);
 const lightFrustumSize = ROOF_RADIUS + 0.1;
-// const lightCamera = new THREE.OrthographicCamera(-lightFrustumSize, lightFrustumSize, lightFrustumSize, -lightFrustumSize, near, far);
+const lightCamera = new THREE.OrthographicCamera(-lightFrustumSize, lightFrustumSize, lightFrustumSize, -lightFrustumSize, near, far);
 lightCamera.position.set(0., 0.0, 0.8);
 lightCamera.lookAt(0, 0, 0);
 
@@ -617,11 +617,20 @@ class Water {
 class EnvironmentMap {
 
   constructor() {
-    this.size = 1024;
-    // this.size = 2048;
-    this.target = new THREE.WebGLRenderTarget(this.size, this.size, {type: THREE.FloatType});
-    // this.size = 1024;
-    // this.target = new THREE.WebGLRenderTarget(this.size, this.size, {type: THREE.FloatType});
+    // Must be >= waterSize (the caustics water mesh's segment count): if the water mesh has more
+    // vertices than this texture has texels, many adjacent vertices sample the same env texel,
+    // making dFdx/dFdy(newPosition) collapse to 0 almost everywhere in the caustics fragment
+    // shader instead of only at real caustic focal points.
+    this.size = waterSize;
+    // Nearest filtering is required: this target stores raw position/depth data with holes
+    // cleared to (0,0,0,0). Linear filtering would blend real geometry texels with the cleared
+    // sentinel at every edge/hole boundary, producing bogus in-between samples that
+    // isValidEnvironmentSample() can't detect (their w is a small nonzero blend, not exactly 0).
+    this.target = new THREE.WebGLRenderTarget(this.size, this.size, {
+      type: THREE.FloatType,
+      minFilter: THREE.NearestFilter,
+      magFilter: THREE.NearestFilter,
+    });
 
     const shadersPromises = [
       loadFile('shaders/environment_mapping/vertex.glsl'),

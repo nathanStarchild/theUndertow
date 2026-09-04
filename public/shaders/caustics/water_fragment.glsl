@@ -9,7 +9,7 @@ varying float causticsValid;
 
 
 void main() {
-  if (causticsValid < 0.5) discard;
+  //if (causticsValid < 0.5) discard;
 
   float causticsIntensity = 0.;
 
@@ -30,5 +30,6 @@ void main() {
     causticsIntensity = causticsFactor * ratio;
   }
 
-  gl_FragColor = vec4(causticsIntensity, 0., 0., depth);
+  gl_FragColor = vec4(causticsIntensity, causticsValid, 0., depth);
+  //gl_FragColor = vec4(causticsIntensity, 0., 0., depth);
 }
