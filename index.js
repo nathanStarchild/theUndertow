@@ -42,10 +42,7 @@ function loadFile(filename) {
 // Constants
 // Water surface stays at its original height; the roof geometry is mirrored to sit below it, playing the floor's role.
 // const waterPosition = new THREE.Vector3(0, 0, 0.8);
-const waterPosition = new THREE.Vector3(0, 0, 0.1);
-const near = 0.;
-// far is widened (vs. the original 2.) to reach the mirrored roof's lowest point at z=-1.2.
-const far = 100.;
+const waterPosition = new THREE.Vector3(0, 0, 0);
 const waterSize = 2048;
 // const waterSize = 4096;
 // sclx/scly stay tied to the roof's real radius so the water-sim domain and light frustum actually cover the whole roof.
@@ -61,18 +58,23 @@ let axis = new THREE.Vector3( );
 // inspected; 0-3 pick what the Debug overlay shows on screen (see keydown listener below).
 let paused = false;
 let debugView = 0;
-const debugViewNames = ['scene', 'water heightfield', 'environment map', 'caustics'];
+const debugViewNames = ['scene', 'water heightfield', 'environment map', 'caustics', 'causticsDebug'];
 window.addEventListener('keydown', (event) => {
   if (event.key === ' ') {
     paused = !paused;
     console.log(paused ? 'paused' : 'resumed');
-  } else if (event.key >= '0' && event.key <= '3') {
+  } else if (event.key >= '0' && event.key <= '4') {
     debugView = parseInt(event.key, 10);
     console.log('debug view:', debugViewNames[debugView]);
   }
 });
 
 // Create directional light
+const near = 0;
+// far is widened (vs. the original 2.) to reach the mirrored roof's lowest point at z=-1.2.
+// A small margin is kept beyond the floor's theoretical distance (camera.z - floor.z = 1.0)
+// so the floor doesn't sit exactly on the far-clip boundary, where float rounding can clip it out entirely.
+const far = ROOF_APEX_HEIGHT + 0.1;
 // TODO Replace this by a THREE.DirectionalLight and use the provided matrix (check that it's an Orthographic matrix as expected)
 const light = [0., 0., -1.];
 // Frustum is widened (vs. the original 1.7x0.9) to cover the roof's full ROOF_RADIUS footprint.
@@ -81,14 +83,14 @@ const light = [0., 0., -1.];
 // const lightCamera = new THREE.OrthographicCamera(-1.7, 1.7, 0.5, -0.5, near, far);
 const lightFrustumSize = ROOF_RADIUS + 0.1;
 const lightCamera = new THREE.OrthographicCamera(-lightFrustumSize, lightFrustumSize, lightFrustumSize, -lightFrustumSize, near, far);
-lightCamera.position.set(0., 0.0, 0.8);
+lightCamera.position.set(0., 0.0, waterPosition.z);
 lightCamera.lookAt(0, 0, 0);
 
 // Create Renderer
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, width / height, 0.01, 100);
 // camera.position.set(0., 0., 5.);
-camera.position.set(0., 0., 5);
+camera.position.set(0., 0., 1.2);
 camera.up.set(0, 0, 1);
 scene.add(camera);
 
@@ -120,6 +122,7 @@ const clock = new THREE.Clock();
 let cachedWaterTexture = null;
 let cachedEnvironmentMapTexture = null;
 let cachedCausticsTexture = null;
+let cachedCausticsDebugTexture = null;
 
 // Ray caster
 const raycaster = new THREE.Raycaster();
@@ -134,7 +137,7 @@ for (let i = 0; i < positions.count; i++) {
 const targetmesh = new THREE.Mesh(targetgeometry);
 
 // Geometries
-const waterWidth = 4.2;
+const waterWidth = ROOF_RADIUS * 2;
 const waterGeometry = new THREE.PlaneGeometry(waterWidth, waterWidth, waterSize, waterSize);
 // const waterGeometry = createWaterGeometry(ROOF_RADIUS, 512);
 const vertices = new Float32Array([
@@ -177,6 +180,10 @@ const indices = new Uint32Array([
 ]);
 
 // Environment
+const floorGeometry = new THREE.PlaneGeometry(ROOF_RADIUS*2, ROOF_RADIUS*2, 1, 1);
+floorGeometry.translate(0, 0, -ROOF_APEX_HEIGHT);
+// floorGeometry.rotateX(-Math.PI / 3.);
+
 // Mirrored in z so the ceiling shape sits below the water plane, playing the floor's role like the original flat floor.
 // const roofGeometry = createRoofGeometry(ROOF_RADIUS, ROOF_APEX_HEIGHT);
 const roofGeometry = createRoofGeometry(ROOF_RADIUS, ROOF_APEX_HEIGHT);
@@ -194,7 +201,7 @@ const sharkLoaded = new Promise((resolve) => {
     sharkGeometry.rotateX(-Math.PI / 2.);
     // sharkGeometry.rotateZ(-Math.PI / 2.);
     // Water now fills upward from the eaves (z=0) to the apex (z=1.2); keep the shark mid-water.
-    sharkGeometry.translate(0, 0, 0.4);
+    sharkGeometry.translate(0, 0, -0.4);
 
     // const sharkPath = new THREE.CurvePath();
 
@@ -254,7 +261,7 @@ const boatLoaded = new Promise((resolve) => {
     boatGeometry.scale(0.0015, 0.0015, 0.0015);
     boatGeometry.rotateX(-Math.PI);
     boatGeometry.rotateZ(Math.PI / 2.);
-    boatGeometry.translate(0, 0, 0);
+    boatGeometry.translate(0, 0, -0.2);
 
     // const sharkPath = new THREE.CurvePath();
 
@@ -700,14 +707,91 @@ class Caustics {
 
   constructor() {
     this.target = new THREE.WebGLRenderTarget(waterSize, waterSize, {type: THREE.FloatType});
+    // this.target = new THREE.WebGLRenderTarget(waterSize*3, waterSize*3, {type: THREE.FloatType});
 
-    this._waterGeometry = new THREE.PlaneGeometry(ROOF_RADIUS*2, ROOF_RADIUS*2, waterSize, waterSize);
+    this._waterGeometry = new THREE.PlaneGeometry(2, 2, waterSize, waterSize);
     this._waterGeometry.scale(sclx, scly, 1.)
     // this._waterGeometry.texture.wrapS = THREE.MirroredRepeatWrapping
 
     const shadersPromises = [
       loadFile('shaders/caustics/water_vertex.glsl'),
       loadFile('shaders/caustics/water_fragment.glsl'),
+    ];
+
+    this.loaded = Promise.all(shadersPromises)
+        .then(([waterVertexShader, waterFragmentShader]) => {
+      this._waterMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          light: { value: light },
+          env: { value: null },
+          water: { value: null },
+          deltaEnvTexture: { value: null },
+          waterHeight: { value: waterPosition.z }
+        },
+        vertexShader: waterVertexShader,
+        fragmentShader: waterFragmentShader,
+        transparent: true,
+      });
+
+      this._waterMaterial.blending = THREE.CustomBlending;
+
+      // Set the blending so that:
+      // Caustics intensity uses an additive function
+      this._waterMaterial.blendEquation = THREE.AddEquation;
+      this._waterMaterial.blendSrc = THREE.OneFactor;
+      this._waterMaterial.blendDst = THREE.OneFactor;
+
+      // Caustics depth does not use blending, we just set the value
+      this._waterMaterial.blendEquationAlpha = THREE.AddEquation;
+      this._waterMaterial.blendSrcAlpha = THREE.OneFactor;
+      this._waterMaterial.blendDstAlpha = THREE.ZeroFactor;
+
+
+      this._waterMaterial.side = THREE.DoubleSide;
+      this._waterMaterial.extensions = {
+        derivatives: true
+      };
+
+      this._waterMesh = new THREE.Mesh(this._waterGeometry, this._waterMaterial);
+    });
+  }
+
+  setDeltaEnvTexture(deltaEnvTexture) {
+    this._waterMaterial.uniforms['deltaEnvTexture'].value = deltaEnvTexture;
+  }
+
+  setTextures(waterTexture, envTexture) {
+    this._waterMaterial.uniforms['env'].value = envTexture;
+    // waterTexture.wrapS = THREE.MirroredRepeatWrapping
+    this._waterMaterial.uniforms['water'].value = waterTexture;
+  }
+
+  render(renderer) {
+    const oldTarget = renderer.getRenderTarget();
+
+    renderer.setRenderTarget(this.target);
+    renderer.setClearColor(black, 0);
+    renderer.clear();
+
+    renderer.render(this._waterMesh, lightCamera);
+
+    renderer.setRenderTarget(oldTarget);
+  }
+
+}
+
+class CausticsDebug {
+
+  constructor() {
+    this.target = new THREE.WebGLRenderTarget(waterSize, waterSize, {type: THREE.FloatType});
+
+    this._waterGeometry = new THREE.PlaneGeometry(ROOF_RADIUS*2, ROOF_RADIUS*2, waterSize, waterSize);
+    this._waterGeometry.scale(sclx, scly, 1.)
+    // this._waterGeometry.texture.wrapS = THREE.MirroredRepeatWrapping
+
+    const shadersPromises = [
+      loadFile('shaders/causticsDebug/water_vertex.glsl'),
+      loadFile('shaders/causticsDebug/water_fragment.glsl'),
     ];
 
     this.loaded = Promise.all(shadersPromises)
@@ -791,7 +875,9 @@ class Environment {
           caustics: { value: null },
           lightProjectionMatrix: { value: lightCamera.projectionMatrix },
           lightViewMatrix: { value: lightCamera.matrixWorldInverse  },
-          underwaterColor: {value: underwaterColour}
+          underwaterColor: {value: underwaterColour},
+          // Caustics render target is always waterSize x waterSize; keep the PCF blur in sync with it.
+          causticsResolution: { value: new THREE.Vector2(waterSize, waterSize) }
         },
         vertexShader: vertexShader,
         fragmentShader: fragmentShader,
@@ -905,6 +991,7 @@ const water = new Water();
 const environmentMap = new EnvironmentMap();
 const environment = new Environment();
 const caustics = new Caustics();
+const causticsDebug = new CausticsDebug();
 
 const debug = new Debug();
 
@@ -1014,6 +1101,10 @@ function animate() {
       caustics.render(renderer);
       cachedCausticsTexture = caustics.target.texture;
 
+      causticsDebug.setTextures(cachedWaterTexture, cachedEnvironmentMapTexture);
+      causticsDebug.render(renderer);
+      cachedCausticsDebugTexture = causticsDebug.target.texture;
+
       environment.updateCaustics(cachedCausticsTexture);
 
       clock.start();
@@ -1040,7 +1131,7 @@ function animate() {
   renderer.render(scene, camera);
 
   if (debugView !== 0) {
-    const debugTexture = [null, cachedWaterTexture, cachedEnvironmentMapTexture, cachedCausticsTexture][debugView];
+    const debugTexture = [null, cachedWaterTexture, cachedEnvironmentMapTexture, cachedCausticsTexture, cachedCausticsDebugTexture][debugView];
     // Environment map's xyz isn't informative on its own; show its depth channel instead.
     const debugMode = debugView === 2 ? 1 : 0;
     if (debugTexture) debug.draw(renderer, debugTexture, debugMode);
@@ -1100,6 +1191,7 @@ const loaded = [
   environmentMap.loaded,
   environment.loaded,
   caustics.loaded,
+  causticsDebug.loaded,
   debug.loaded,
   sharkLoaded,
   rockLoaded,
@@ -1110,6 +1202,7 @@ const loaded = [
 
 Promise.all(loaded).then(() => {
   // const envGeometries = [roofGeometry, rock1, rock2];
+  // const envGeometries = [floorGeometry];
   const envGeometries = [roofGeometry];
 
   // movingGeometries = [shark, boat1, boat2]
@@ -1141,6 +1234,7 @@ Promise.all(loaded).then(() => {
 
 
   caustics.setDeltaEnvTexture(1. / environmentMap.size);
+  causticsDebug.setDeltaEnvTexture(1. / environmentMap.size);
 
   canvas.addEventListener('mousemove', { handleEvent: onMouseMove });
 
@@ -1152,10 +1246,10 @@ Promise.all(loaded).then(() => {
   //   );
   // }
 
-  waveGen(-0.7, -0.3, 0.05, 0.5, 30000, 0.1)
-  waveGen(-0.7, 0.3, 0.01, 0.05, 12000, 0.1)
-  waveGen(0.1, 0.6, 0.01, 0.1, 10000, 0.2)
-  waveGen(-0.2, -0.6, 0.01, 0.5, 220000, 0.3)
+  // waveGen(-0.7, -0.3, 0.05, 0.5, 30000, 0.1)
+  // waveGen(-0.7, 0.3, 0.01, 0.05, 12000, 0.1)
+  // waveGen(0.1, 0.6, 0.01, 0.1, 10000, 0.2)
+  // waveGen(-0.2, -0.6, 0.01, 0.5, 220000, 0.3)
 
 
   // let waveTimer2 = setInterval(function(){

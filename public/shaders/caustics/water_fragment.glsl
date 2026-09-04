@@ -30,6 +30,6 @@ void main() {
     causticsIntensity = causticsFactor * ratio;
   }
 
-  gl_FragColor = vec4(causticsIntensity, causticsValid, 0., depth);
+  gl_FragColor = vec4(causticsIntensity, 0., 0., depth);
   //gl_FragColor = vec4(causticsIntensity, 0., 0., depth);
 }

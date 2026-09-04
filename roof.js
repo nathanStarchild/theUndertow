@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 
 // Real-world hexayurt roof dimensions derived from 2400mm panels (see conversation notes).
-export const ROOF_RADIUS = 1.2;
-export const ROOF_APEX_HEIGHT = 0.6;
+export const ROOF_RADIUS = 1;
+export const ROOF_APEX_HEIGHT = 0.5;
 
 // Builds a hexagonal-pyramid roof (6 flat triangular panels) as a non-indexed
 // BufferGeometry so each panel keeps its own flat face normal for caustics lighting.

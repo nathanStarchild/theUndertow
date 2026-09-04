@@ -34,8 +34,8 @@ void main() {
   vec4 waterInfo = texture2D(water, uv);
 
   // The water position is the vertex position on which we apply the height-map
-  // TODO Remove the ugly hardcoded +0.8 for the water position
-  vec3 waterPosition = vec3(position.xy, position.z + waterInfo.r + 0.8);
+  vec3 waterPosition = vec3(position.xy, position.z + waterInfo.r + waterHeight);
+  // vec3 waterPosition = vec3(position.xy, position.z + waterInfo.r + 0.8);
   vec3 waterNormal = normalize(vec3(waterInfo.b, sqrt(1.0 - dot(waterInfo.ba, waterInfo.ba)), waterInfo.a)).xzy;
 
   // This is the initial position: the ray starting point
@@ -93,13 +93,13 @@ void main() {
 
   causticsValid = hit ? 1. : 0.;
 
-  newPosition = hit ? environment.xyz : waterPosition;
-  vec4 projectedEnvPosition = hit
-      ? projectionMatrix * viewMatrix * vec4(newPosition, 1.0)
-      : projectedWaterPosition;
+   newPosition = hit ? environment.xyz : waterPosition;
+   vec4 projectedEnvPosition = hit
+       ? projectionMatrix * viewMatrix * vec4(newPosition, 1.0)
+       : projectedWaterPosition;
 
-  //newPosition = environment.xyz;
-  //vec4 projectedEnvPosition = projectionMatrix * viewMatrix * vec4(newPosition, 1.0);
+  // newPosition = environment.xyz;
+  // vec4 projectedEnvPosition = projectionMatrix * viewMatrix * vec4(newPosition, 1.0);
 
   depth = 0.5 + 0.5 * projectedEnvPosition.z / projectedEnvPosition.w;
 

@@ -7,12 +7,13 @@ varying vec3 lightPosition;
 // Sloped roof panels need a much looser tolerance than the original flat floor: the caustics
 // ray-march samples the receiving surface's depth at a slightly shifted xy each step, which on
 // a slope reads a different (usually shallower) depth than the receiving fragment's own depth.
-//const float bias = 0.5;
-//const float bias = 0.001;
-const float bias = 0.01;
+const float bias = 0.5;
+// const float bias = 0.001;
+// const float bias = 0.1;
 
-
-const vec2 resolution = vec2(1024.);
+// Size (in texels) of the caustics texture being sampled below, so the PCF blur offsets always
+// match the actual render target instead of drifting out of sync with it.
+uniform vec2 causticsResolution;
 
 float blur(sampler2D image, vec2 uv, vec2 resolution, vec2 direction) {
   float intensity = 0.;
@@ -38,8 +39,8 @@ void main() {
   if (causticsDepth > lightPosition.z - bias) {
     // Percentage Close Filtering
     float causticsIntensity = 0.5 * (
-      blur(caustics, lightPosition.xy, resolution, vec2(0., 0.5)) +
-      blur(caustics, lightPosition.xy, resolution, vec2(0.5, 0.))
+      blur(caustics, lightPosition.xy, causticsResolution, vec2(0., 0.5)) +
+      blur(caustics, lightPosition.xy, causticsResolution, vec2(0.5, 0.))
     );
 
     computedLightIntensity += causticsIntensity * smoothstep(0., 1., lightIntensity);;
