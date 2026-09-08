@@ -25,7 +25,7 @@ void main() {
     // blows out the PCF blur downstream (it averages this texel with its neighbors), so cap
     // it at a value that's bright but not absurd rather than the largest finite float.
     if (newArea == 0.) {
-      ratio = 50.;
+      ratio = 8.;
       div_zero = 1.;
     } else {
       ratio = oldArea / newArea;
