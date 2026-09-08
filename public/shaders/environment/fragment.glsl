@@ -43,9 +43,14 @@ void main() {
 
   // if (causticsDepth > lightPosition.z - bias) {
     // Percentage Close Filtering
-    float causticsIntensity = 0.5 * (
+    // PCF blur approximated as 4 directional passes (horizontal/vertical/both diagonals)
+    // averaged together instead of just horizontal+vertical, for a more isotropic kernel
+    // (a true separable 2-pass blur would need an extra render target/pass).
+    float causticsIntensity = 0.25 * (
       blur(caustics, lightPosition.xy, causticsResolution, vec2(0., 0.5)) +
-      blur(caustics, lightPosition.xy, causticsResolution, vec2(0.5, 0.))
+      blur(caustics, lightPosition.xy, causticsResolution, vec2(0.5, 0.)) +
+      blur(caustics, lightPosition.xy, causticsResolution, vec2(0.3536, 0.3536)) +
+      blur(caustics, lightPosition.xy, causticsResolution, vec2(0.3536, -0.3536))
     );
     // float causticsIntensity = texture2D(caustics, lightPosition.xy).x;
 
