@@ -6,9 +6,9 @@ import { createRoofGeometry, ROOF_RADIUS, ROOF_APEX_HEIGHT } from './roof.js';
 import { createWaterGeometry } from './waterSurface.js';
 
 const stats = new Stats();
-// stats.showPanel(0);
+stats.showPanel(0);
 
-// document.body.appendChild(stats.domElement);
+document.body.appendChild(stats.dom);
 
 const canvas = document.getElementById('canvas');
 
@@ -44,6 +44,7 @@ function loadFile(filename) {
 // const waterPosition = new THREE.Vector3(0, 0, 0.8);
 const waterPosition = new THREE.Vector3(0, 0, 0);
 const waterSize = 2048;
+const renderSize = waterSize * 2;
 // const waterSize = 4096;
 // sclx/scly stay tied to the roof's real radius so the water-sim domain and light frustum actually cover the whole roof.
 // const sclx = ROOF_RADIUS;
@@ -501,9 +502,9 @@ class WaterSimulation {
     this._geometry = new THREE.PlaneGeometry(2, 2);
     // console.log(this._geometry.parameters)
 
-    this._targetA = new THREE.WebGLRenderTarget(waterSize, waterSize, {type: THREE.FloatType});
+    this._targetA = new THREE.WebGLRenderTarget(renderSize, renderSize, {type: THREE.FloatType});
     // this._targetA.texture.wrapS = this._targetA.texture.wrapT = THREE.MirroredRepeatWrapping
-    this._targetB = new THREE.WebGLRenderTarget(waterSize, waterSize, {type: THREE.FloatType});
+    this._targetB = new THREE.WebGLRenderTarget(renderSize, renderSize, {type: THREE.FloatType});
     // this._targetB.texture.wrapS = this._targetB.texture.wrapT = THREE.MirroredRepeatWrapping
     this.target = this._targetA;
 
@@ -628,7 +629,7 @@ class EnvironmentMap {
     // vertices than this texture has texels, many adjacent vertices sample the same env texel,
     // making dFdx/dFdy(newPosition) collapse to 0 almost everywhere in the caustics fragment
     // shader instead of only at real caustic focal points.
-    this.size = waterSize;
+    this.size = renderSize;
     // Nearest filtering is required: this target stores raw position/depth data with holes
     // cleared to (0,0,0,0). Linear filtering would blend real geometry texels with the cleared
     // sentinel at every edge/hole boundary, producing bogus in-between samples that
@@ -706,7 +707,7 @@ class EnvironmentMap {
 class Caustics {
 
   constructor() {
-    this.target = new THREE.WebGLRenderTarget(waterSize, waterSize, {type: THREE.FloatType});
+    this.target = new THREE.WebGLRenderTarget(renderSize, renderSize, {type: THREE.FloatType});
     // this.target = new THREE.WebGLRenderTarget(waterSize*3, waterSize*3, {type: THREE.FloatType});
 
     this._waterGeometry = new THREE.PlaneGeometry(2, 2, waterSize, waterSize);
@@ -877,7 +878,7 @@ class Environment {
           lightViewMatrix: { value: lightCamera.matrixWorldInverse  },
           underwaterColor: {value: underwaterColour},
           // Caustics render target is always waterSize x waterSize; keep the PCF blur in sync with it.
-          causticsResolution: { value: new THREE.Vector2(waterSize, waterSize) }
+          causticsResolution: { value: new THREE.Vector2(renderSize, renderSize) }
         },
         vertexShader: vertexShader,
         fragmentShader: fragmentShader,
