@@ -36,7 +36,7 @@ void main() {
   // Retrieve caustics depth information
   float causticsDepth = texture2D(caustics, lightPosition.xy).w;
 
-  if (causticsDepth > lightPosition.z - bias) {
+  // if (causticsDepth > lightPosition.z - bias) {
     // Percentage Close Filtering
     float causticsIntensity = 0.5 * (
       blur(caustics, lightPosition.xy, causticsResolution, vec2(0., 0.5)) +
@@ -45,7 +45,7 @@ void main() {
     // float causticsIntensity = texture2D(caustics, lightPosition.xy).x;
 
     computedLightIntensity += causticsIntensity * smoothstep(0., 1., lightIntensity);;
-  }
+  // }
 
   gl_FragColor = vec4(underwaterColor * computedLightIntensity, 1.);
 }
