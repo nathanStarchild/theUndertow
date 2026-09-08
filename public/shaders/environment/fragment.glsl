@@ -11,6 +11,10 @@ varying vec3 lightPosition;
 // const float bias = 0.001;
 const float bias = 0.5;
 
+// Clamp how bright a single caustic sample can push a fragment, so an outlier texel (e.g. the
+// div-by-zero fallback in the caustics shader) can't blow it out to solid white.
+const float maxCausticsIntensity = 2.0;
+
 // Size (in texels) of the caustics texture being sampled below, so the PCF blur offsets always
 // match the actual render target instead of drifting out of sync with it.
 uniform vec2 causticsResolution;
@@ -31,7 +35,8 @@ void main() {
   // Set the frag color
   float computedLightIntensity = 0.5;
 
-  computedLightIntensity += 0.2 * lightIntensity;
+  // Clamp to 0 so back-facing surfaces get no direct-light contribution at all.
+  computedLightIntensity += 0.2 * max(lightIntensity, 0.);
 
   // Retrieve caustics depth information
   float causticsDepth = texture2D(caustics, lightPosition.xy).w;
@@ -43,6 +48,8 @@ void main() {
       blur(caustics, lightPosition.xy, causticsResolution, vec2(0.5, 0.))
     );
     // float causticsIntensity = texture2D(caustics, lightPosition.xy).x;
+
+    causticsIntensity = min(causticsIntensity, maxCausticsIntensity);
 
     computedLightIntensity += causticsIntensity * smoothstep(0., 1., lightIntensity);;
   // }
