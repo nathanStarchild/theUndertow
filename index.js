@@ -158,7 +158,8 @@ for (let i = 0; i < positions.count; i++) {
 const targetmesh = new THREE.Mesh(targetgeometry);
 
 // Geometries
-const waterGeometry = createWaterGeometry(ROOF_RADIUS, hexMeshSegments);
+const waterGeometry = new THREE.PlaneGeometry(waterWidth, waterWidth, waterSize, waterSize);
+// const waterGeometry = createWaterGeometry(ROOF_RADIUS, hexMeshSegments);
 const vertices = new Float32Array([
   -1, -1, -1,
   -1, -1, 1,
@@ -644,7 +645,7 @@ class Water {
 class EnvironmentMap {
 
   constructor() {
-    // Must be >= hexMeshSegments (the caustics water mesh's segment count): if the water mesh has
+    // Must be >= waterSize (the caustics water mesh's segment count): if the water mesh has
     // more vertices than this texture has texels, many adjacent vertices sample the same env texel,
     // making dFdx/dFdy(newPosition) collapse to 0 almost everywhere in the caustics fragment
     // shader instead of only at real caustic focal points.
@@ -729,7 +730,8 @@ class Caustics {
     this.target = new THREE.WebGLRenderTarget(renderSize, renderSize, {type: THREE.FloatType});
     // this.target = new THREE.WebGLRenderTarget(waterSize*3, waterSize*3, {type: THREE.FloatType});
 
-    this._waterGeometry = createWaterGeometry(ROOF_RADIUS, hexMeshSegments);
+    this._waterGeometry = new THREE.PlaneGeometry(waterWidth, waterWidth, waterSize, waterSize);
+    // this._waterGeometry = createWaterGeometry(ROOF_RADIUS, hexMeshSegments);
     // this._waterGeometry.texture.wrapS = THREE.MirroredRepeatWrapping
 
     const shadersPromises = [
@@ -804,7 +806,8 @@ class CausticsDebug {
   constructor() {
     this.target = new THREE.WebGLRenderTarget(waterSize, waterSize, {type: THREE.FloatType});
 
-    this._waterGeometry = createWaterGeometry(ROOF_RADIUS, hexMeshSegments);
+    this._waterGeometry = new THREE.PlaneGeometry(waterWidth, waterWidth, waterSize, waterSize);
+    // this._waterGeometry = createWaterGeometry(ROOF_RADIUS, hexMeshSegments);
     // this._waterGeometry.texture.wrapS = THREE.MirroredRepeatWrapping
 
     const shadersPromises = [
