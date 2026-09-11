@@ -9,7 +9,7 @@ varying vec3 lightPosition;
 // a slope reads a different (usually shallower) depth than the receiving fragment's own depth.
 // const float bias = 0.5;
 // const float bias = 0.001;
-const float bias = 0.5;
+const float bias = 0.005;
 
 // Clamp how bright a single caustic sample can push a fragment, so an outlier texel (e.g. the
 // div-by-zero fallback in the caustics shader) can't blow it out to solid white.

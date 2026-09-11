@@ -429,12 +429,12 @@ const rockLoaded = new Promise((resolve) => {
     rockGeometry.computeVertexNormals();
 
     rock1 = new THREE.BufferGeometry().copy(rockGeometry);
-    rock1.scale(0.05, 0.05, 0.02);
-    rock1.translate(0.2, 0., 0.1);
+    rock1.scale(0.02, 0.02, 0.02);
+    rock1.translate(0.2, 0., -0.1);
 
     rock2 = new THREE.BufferGeometry().copy(rockGeometry);
-    rock2.scale(0.05, 0.05, 0.05);
-    rock2.translate(-0.5, 0.5, 0.2);
+    rock2.scale(0.02, 0.02, 0.02);
+    rock2.translate(-0.5, 0.5, -0.2);
     rock2.rotateZ(Math.PI / 2.);
 
     resolve();
@@ -1228,7 +1228,7 @@ const loaded = [
 Promise.all(loaded).then(() => {
   // const envGeometries = [roofGeometry, rock1, rock2];
   // const envGeometries = [floorGeometry];
-  const envGeometries = [roofGeometry];
+  const envGeometries = [roofGeometry, rock1, rock2];
 
   // movingGeometries = [shark, boat1, boat2]
   movingGeometries = [shark]
