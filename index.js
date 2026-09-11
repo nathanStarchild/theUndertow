@@ -52,6 +52,26 @@ const renderSize = waterSize * 2;
 const sclx = 1.;
 const scly = 1.;
 
+// The water sim/caustics/mouse-picking domain is a hexagon whose side length (== circumradius)
+// matches the roof footprint, so all of them agree on world-space scale.
+const waterWidth = ROOF_RADIUS * 2;
+// Real apothem of that hexagon (center-to-edge distance), used to bound the sim to the same shape.
+const waterApothem = ROOF_RADIUS * Math.cos(Math.PI / 6);
+
+// Water heightfield resolution, decoupled from renderSize (which sizes the environment map and
+// caustics render targets) so tuning ripple detail doesn't affect caustics/environment quality.
+const waterSimResolution = 1024;
+
+// Neighbor sampling offset (in texels) for the simulation's Laplacian update in
+// simulation/update_fragment.glsl. Widening this - rather than raising that shader's spring
+// constant - is what controls wave propagation speed without destabilizing the explicit integrator.
+const simStencilTexels = 4;
+
+// Segment count for the hexagonal water/caustics meshes below. A triangular sector subdivided
+// into N segments per side has N^2 triangles, and there are 6 sectors (6*N^2 total) - vs a square
+// grid's 2*N^2 - so this is kept well below waterSize to avoid a ~3x triangle-count blowup.
+const hexMeshSegments = 1024;
+
 const up = new THREE.Vector3( 0, 1, 0 );
 let axis = new THREE.Vector3( );
 
@@ -128,7 +148,7 @@ let cachedCausticsDebugTexture = null;
 // Ray caster
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
-const targetgeometry = new THREE.PlaneGeometry(2, 2);
+const targetgeometry = new THREE.PlaneGeometry(waterWidth, waterWidth);
 targetgeometry.scale(sclx, scly, 1.)
 // Update vertex positions using BufferGeometry attributes
 const positions = targetgeometry.attributes.position;
@@ -138,9 +158,7 @@ for (let i = 0; i < positions.count; i++) {
 const targetmesh = new THREE.Mesh(targetgeometry);
 
 // Geometries
-const waterWidth = ROOF_RADIUS * 2;
-const waterGeometry = new THREE.PlaneGeometry(waterWidth, waterWidth, waterSize, waterSize);
-// const waterGeometry = createWaterGeometry(ROOF_RADIUS, 512);
+const waterGeometry = createWaterGeometry(ROOF_RADIUS, hexMeshSegments);
 const vertices = new Float32Array([
   -1, -1, -1,
   -1, -1, 1,
@@ -502,9 +520,9 @@ class WaterSimulation {
     this._geometry = new THREE.PlaneGeometry(2, 2);
     // console.log(this._geometry.parameters)
 
-    this._targetA = new THREE.WebGLRenderTarget(renderSize, renderSize, {type: THREE.FloatType});
+    this._targetA = new THREE.WebGLRenderTarget(waterSimResolution, waterSimResolution, {type: THREE.FloatType});
     // this._targetA.texture.wrapS = this._targetA.texture.wrapT = THREE.MirroredRepeatWrapping
-    this._targetB = new THREE.WebGLRenderTarget(renderSize, renderSize, {type: THREE.FloatType});
+    this._targetB = new THREE.WebGLRenderTarget(waterSimResolution, waterSimResolution, {type: THREE.FloatType});
     // this._targetB.texture.wrapS = this._targetB.texture.wrapT = THREE.MirroredRepeatWrapping
     this.target = this._targetA;
 
@@ -529,7 +547,8 @@ class WaterSimulation {
 
       const updateMaterial = new THREE.RawShaderMaterial({
         uniforms: {
-            delta: { value: [1 / (512 * sclx), 1 / (512 * sclx)] },  // TODO: Remove this useless uniform and hardcode it in shaders?
+            delta: { value: [simStencilTexels / waterSimResolution, simStencilTexels / waterSimResolution] },
+            hexApothem: { value: waterApothem },
             texture: { value: null },
         },
         vertexShader: vertexShader,
@@ -625,8 +644,8 @@ class Water {
 class EnvironmentMap {
 
   constructor() {
-    // Must be >= waterSize (the caustics water mesh's segment count): if the water mesh has more
-    // vertices than this texture has texels, many adjacent vertices sample the same env texel,
+    // Must be >= hexMeshSegments (the caustics water mesh's segment count): if the water mesh has
+    // more vertices than this texture has texels, many adjacent vertices sample the same env texel,
     // making dFdx/dFdy(newPosition) collapse to 0 almost everywhere in the caustics fragment
     // shader instead of only at real caustic focal points.
     this.size = renderSize;
@@ -710,8 +729,7 @@ class Caustics {
     this.target = new THREE.WebGLRenderTarget(renderSize, renderSize, {type: THREE.FloatType});
     // this.target = new THREE.WebGLRenderTarget(waterSize*3, waterSize*3, {type: THREE.FloatType});
 
-    this._waterGeometry = new THREE.PlaneGeometry(2, 2, waterSize, waterSize);
-    this._waterGeometry.scale(sclx, scly, 1.)
+    this._waterGeometry = createWaterGeometry(ROOF_RADIUS, hexMeshSegments);
     // this._waterGeometry.texture.wrapS = THREE.MirroredRepeatWrapping
 
     const shadersPromises = [
@@ -786,8 +804,7 @@ class CausticsDebug {
   constructor() {
     this.target = new THREE.WebGLRenderTarget(waterSize, waterSize, {type: THREE.FloatType});
 
-    this._waterGeometry = new THREE.PlaneGeometry(ROOF_RADIUS*2, ROOF_RADIUS*2, waterSize, waterSize);
-    this._waterGeometry.scale(sclx, scly, 1.)
+    this._waterGeometry = createWaterGeometry(ROOF_RADIUS, hexMeshSegments);
     // this._waterGeometry.texture.wrapS = THREE.MirroredRepeatWrapping
 
     const shadersPromises = [
@@ -1207,7 +1224,7 @@ Promise.all(loaded).then(() => {
   const envGeometries = [roofGeometry];
 
   // movingGeometries = [shark, boat1, boat2]
-  movingGeometries = [shark, boat1]
+  movingGeometries = [shark]
 
   environmentMap.setGeometries(envGeometries);
   environment.setGeometries(envGeometries);
