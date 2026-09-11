@@ -221,7 +221,7 @@ const sharkLoaded = new Promise((resolve) => {
     sharkGeometry.rotateX(-Math.PI / 2.);
     // sharkGeometry.rotateZ(-Math.PI / 2.);
     // Water now fills upward from the eaves (z=0) to the apex (z=1.2); keep the shark mid-water.
-    sharkGeometry.translate(0, 0, -0.4);
+    sharkGeometry.translate(0, 0, -0.1);
 
     // const sharkPath = new THREE.CurvePath();
 
@@ -550,6 +550,7 @@ class WaterSimulation {
         uniforms: {
             delta: { value: [simStencilTexels / waterSimResolution, simStencilTexels / waterSimResolution] },
             hexApothem: { value: waterApothem },
+            dt: { value: 0.032 },
             texture: { value: null },
         },
         vertexShader: vertexShader,
@@ -570,7 +571,8 @@ class WaterSimulation {
     this._render(renderer, this._dropMesh);
   }
 
-  stepSimulation(renderer) {
+  stepSimulation(renderer, dt) {
+    this._updateMesh.material.uniforms['dt'].value = dt;
     this._render(renderer, this._updateMesh);
   }
 
@@ -1107,9 +1109,11 @@ function animate() {
     // console.log(underwaterColour)
 
     // Update the water
-    if (clock.getElapsedTime() > 0.032) {
+    const waterDt = clock.getElapsedTime();
+    if (waterDt > 0.032) {
+      // console.log(waterDt);
     // if (false) {
-      waterSimulation.stepSimulation(renderer);
+      waterSimulation.stepSimulation(renderer, waterDt);
 
       cachedWaterTexture = waterSimulation.target.texture;
 
@@ -1179,7 +1183,7 @@ function onMouseMove(event) {
 
   if (paused) return;
   for (let intersect of intersects) {
-    waterSimulation.addDrop(renderer, intersect.point.x, intersect.point.y, 0.03, 0.01);
+    waterSimulation.addDrop(renderer, intersect.point.x, intersect.point.y, 0.03, 0.005);
   }
 }
 
@@ -1227,7 +1231,7 @@ Promise.all(loaded).then(() => {
   const envGeometries = [roofGeometry];
 
   // movingGeometries = [shark, boat1, boat2]
-  movingGeometries = [shark, boat1]
+  movingGeometries = [shark]
 
   environmentMap.setGeometries(envGeometries);
   environment.setGeometries(envGeometries);
@@ -1267,10 +1271,10 @@ Promise.all(loaded).then(() => {
   //   );
   // }
 
-  // waveGen(-0.7, -0.3, 0.05, 0.5, 30000, 0.1)
-  // waveGen(-0.7, 0.3, 0.01, 0.05, 12000, 0.1)
-  // waveGen(0.1, 0.6, 0.01, 0.1, 10000, 0.2)
-  // waveGen(-0.2, -0.6, 0.01, 0.5, 220000, 0.3)
+  waveGen(-0.7, -0.3, 0.05, 0.5, 300000, 0.02)
+  waveGen(-0.7, 0.3, 0.01, 0.05, 120000, 0.03)
+  waveGen(0.1, 0.6, 0.01, 0.1, 100000, 0.05)
+  waveGen(-0.2, -0.6, 0.01, 0.5, 4200000, 0.08)
 
 
   // let waveTimer2 = setInterval(function(){
