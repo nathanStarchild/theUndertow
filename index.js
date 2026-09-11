@@ -60,7 +60,7 @@ const waterApothem = ROOF_RADIUS * Math.cos(Math.PI / 6);
 
 // Water heightfield resolution, decoupled from renderSize (which sizes the environment map and
 // caustics render targets) so tuning ripple detail doesn't affect caustics/environment quality.
-const waterSimResolution = 1024;
+const waterSimResolution = 2048;
 
 // Neighbor sampling offset (in texels) for the simulation's Laplacian update in
 // simulation/update_fragment.glsl. Widening this - rather than raising that shader's spring
@@ -1227,7 +1227,7 @@ Promise.all(loaded).then(() => {
   const envGeometries = [roofGeometry];
 
   // movingGeometries = [shark, boat1, boat2]
-  movingGeometries = [shark]
+  movingGeometries = [shark, boat1]
 
   environmentMap.setGeometries(envGeometries);
   environment.setGeometries(envGeometries);

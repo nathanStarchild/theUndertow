@@ -38,11 +38,11 @@ void main() {
   info.r += info.g;
 
   /* update the normal */
-  // vec3 ddx = vec3(delta.x, texture2D(texture, vec2(coord.x + delta.x, coord.y)).r - info.r, 0.0);
-  // vec3 ddy = vec3(0.0, texture2D(texture, vec2(coord.x, coord.y + delta.y)).r - info.r, delta.y);
+  vec3 ddx = vec3(delta.x, texture2D(texture, vec2(coord.x + delta.x, coord.y)).r - info.r, 0.0);
+  vec3 ddy = vec3(0.0, texture2D(texture, vec2(coord.x, coord.y + delta.y)).r - info.r, delta.y);
 
-  vec3 ddx = vec3(delta.x, hR - info.r, 0.0);
-  vec3 ddy = vec3(0.0, hU - info.r, delta.y);
+  // vec3 ddx = vec3(delta.x, hR - info.r, 0.0);
+  // vec3 ddy = vec3(0.0, hU - info.r, delta.y);
   info.ba = normalize(cross(ddy, ddx)).xz;
 
   gl_FragColor = info;
