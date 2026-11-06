@@ -13,7 +13,7 @@ const float bias = 0.005;
 
 // Clamp how bright a single caustic sample can push a fragment, so an outlier texel (e.g. the
 // div-by-zero fallback in the caustics shader) can't blow it out to solid white.
-const float maxCausticsIntensity = 2.0;
+const float maxCausticsIntensity = 4.0;
 
 // Size (in texels) of the caustics texture being sampled below, so the PCF blur offsets always
 // match the actual render target instead of drifting out of sync with it.
@@ -41,7 +41,7 @@ void main() {
   // Retrieve caustics depth information
   float causticsDepth = texture2D(caustics, lightPosition.xy).w;
 
-  // if (causticsDepth > lightPosition.z - bias) {
+  if (causticsDepth > lightPosition.z - bias) {
     // Percentage Close Filtering
     // PCF blur approximated as 4 directional passes (horizontal/vertical/both diagonals)
     // averaged together instead of just horizontal+vertical, for a more isotropic kernel
@@ -57,7 +57,7 @@ void main() {
     causticsIntensity = min(causticsIntensity, maxCausticsIntensity);
 
     computedLightIntensity += causticsIntensity * smoothstep(0., 1., lightIntensity);;
-  // }
+  }
 
   gl_FragColor = vec4(underwaterColor * computedLightIntensity, 1.);
 }
