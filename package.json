@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "node app.js",
-    "electron": "electron ."
+    "electron": "electron .",
+    "electron:span-test": "electron electron/spanning-test.js"
   },
   "author": "",
   "license": "ISC",

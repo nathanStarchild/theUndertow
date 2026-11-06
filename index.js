@@ -95,7 +95,7 @@ window.addEventListener('keydown', (event) => {
   }
   if (event.key < '0' || event.key > '9') return;
   if (isShowMode) {
-    showCalibrationPanel?.toggle();
+    showCalibrationPanels[`proj-${event.key}`]?.toggle();
   } else if (event.key <= '7') {
     debugView = parseInt(event.key, 10);
     console.log('debug view:', debugViewNames[debugView]);
@@ -1240,18 +1240,28 @@ function animate() {
   window.requestAnimationFrame(animate);
 }
 
-// Show mode: one window per physical projector, rendering only that projector's camera fullscreen
-// against projectionScene (roof on black). No orbit scene, no debug views, no multi-viewport pass.
+// Show mode: a single window spanning every assigned projector display, one simulation step and
+// one viewport-per-region render pass against projectionScene (roof on black) - not one process
+// per display, which would run the (expensive) water/environment/caustics sim redundantly once
+// per projector and let them drift out of sync with each other. No orbit scene, no debug views.
 function animateShow() {
   updateSimulation();
 
-  const myProjector = projectors.find((p) => p.id === showContext.projectorId);
-  if (myProjector) {
-    renderer.setRenderTarget(null);
-    renderer.setClearColor(black, 1);
+  renderer.setRenderTarget(null);
+  renderer.setScissorTest(true);
+  renderer.setClearColor(black, 1);
+  for (const region of showContext.regions) {
+    const projector = projectors.find((p) => p.id === region.id);
+    if (!projector) continue;
+    // Electron gives region rects top-down (y=0 at screen top); WebGL viewports are bottom-up.
+    const viewportY = height - region.rect.y - region.rect.height;
+    renderer.setViewport(region.rect.x, viewportY, region.rect.width, region.rect.height);
+    renderer.setScissor(region.rect.x, viewportY, region.rect.width, region.rect.height);
     renderer.clear();
-    renderer.render(projectionScene, myProjector.camera);
+    renderer.render(projectionScene, projector.camera);
   }
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, width, height);
 
   window.requestAnimationFrame(animateShow);
 }
@@ -1299,8 +1309,8 @@ let projectionConfig;
 let projectors = [];
 // Default until the calibration UI exists, so the debugView 6/7 branches are harmless before load.
 let calibrationState = { active: null, enabled: {} };
-// Show-mode-only: the single-projector overlay toggled by any digit key (see keydown listener above).
-let showCalibrationPanel;
+// Show-mode-only: one overlay per region (keyed by projector id), toggled by the matching digit key.
+let showCalibrationPanels = {};
 const projectionLoaded = loadProjectionConfig().then((config) => {
   projectionConfig = applySavedCalibration(config);
   projectors = resolveProjectors(config);
@@ -1358,9 +1368,12 @@ Promise.all(loaded).then(() => {
   const roofWireframe = createRoofWireframe(roofGeometry);
   projectionScene.add(roofWireframe);
   if (isShowMode) {
-    showCalibrationPanel = createShowCalibrationPanel(projectionConfig, showContext.projectorId, roofWireframe, (resolved) => {
-      projectors = resolved;
-    });
+    for (const region of showContext.regions) {
+      const anchor = { left: region.rect.x + region.rect.width / 2, top: region.rect.y + region.rect.height / 2 };
+      showCalibrationPanels[region.id] = createShowCalibrationPanel(projectionConfig, region.id, roofWireframe, (resolved) => {
+        projectors = resolved;
+      }, anchor);
+    }
   } else {
     calibrationState = createCalibrationUI(projectionConfig, roofWireframe, (resolved) => {
       projectors = resolved;

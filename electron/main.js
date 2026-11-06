@@ -121,15 +121,59 @@ function launchShow(settings) {
     return;
   }
 
-  for (const { displayId, role } of settings.assignments) {
-    const display = byId.get(displayId);
-    if (!display || role === 'unused') continue;
-    if (role === 'monitor') {
-      createWindow(display, { mode: 'dev' }, { kiosk: false });
-    } else {
-      createWindow(display, { mode: 'show', projectorId: role }, { kiosk: true });
-    }
+  const projectorAssignments = settings.assignments
+    .filter((a) => a.role !== 'unused' && a.role !== 'monitor')
+    .map((a) => ({ display: byId.get(a.displayId), id: a.role }))
+    .filter((a) => a.display);
+
+  if (projectorAssignments.length) {
+    createProjectorSpanWindow(projectorAssignments);
   }
+
+  for (const { displayId, role } of settings.assignments) {
+    if (role !== 'monitor') continue;
+    const display = byId.get(displayId);
+    if (display) createWindow(display, { mode: 'dev' }, { kiosk: false });
+  }
+}
+
+// One window spanning the bounding box of every assigned projector display, all driven by a
+// single simulation/render loop - avoids running the sim once per display (see index.js
+// animateShow). Each projector gets a viewport region at its real position within that box.
+function createProjectorSpanWindow(projectorAssignments) {
+  const left = Math.min(...projectorAssignments.map((a) => a.display.bounds.x));
+  const top = Math.min(...projectorAssignments.map((a) => a.display.bounds.y));
+  const right = Math.max(...projectorAssignments.map((a) => a.display.bounds.x + a.display.bounds.width));
+  const bottom = Math.max(...projectorAssignments.map((a) => a.display.bounds.y + a.display.bounds.height));
+
+  const regions = projectorAssignments.map(({ display, id }) => ({
+    id,
+    rect: {
+      x: display.bounds.x - left,
+      y: display.bounds.y - top,
+      width: display.bounds.width,
+      height: display.bounds.height,
+    },
+  }));
+
+  const win = new BrowserWindow({
+    x: left,
+    y: top,
+    width: right - left,
+    height: bottom - top,
+    frame: false,
+    resizable: false,
+    fullscreenable: false,
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      additionalArguments: [`--show-context=${JSON.stringify({ mode: 'show', regions })}`],
+    },
+  });
+  win.setMenuBarVisibility(false);
+  win.loadURL(appURL());
+  showWindows.push(win);
+  return win;
 }
 
 app.whenReady().then(() => {
