@@ -3,11 +3,13 @@
   "version": "1.0.0",
   "description": "Try it live: https://martinrenou.github.io/threejs-caustics",
   "type": "module",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "node app.js"
+    "start": "node app.js",
+    "electron": "electron ."
   },
   "author": "",
   "license": "ISC",
@@ -15,8 +17,9 @@
     "express": "^4.21.2"
   },
   "devDependencies": {
-    "three": "^0.170.0",
+    "electron": "^33.4.11",
     "stats.js": "^0.17.0",
+    "three": "^0.170.0",
     "vite": "^6.0.1"
   }
 }

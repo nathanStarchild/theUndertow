@@ -1,0 +1,46 @@
+{
+  "units": "meters",
+  "venue": {
+    "roofRadius": 2.4,
+    "apexHeight": 1.2,
+    "wallHeight": 1.2
+  },
+  "defaults": {
+    "mountHeight": 1.1,
+    "mountRadius": 2.24,
+    "throwRatio": 0.8,
+    "resolution": [1920, 1080]
+  },
+  "projectors": [
+    {
+      "id": "proj-1",
+      "mount": "corner-0",
+      "adjust": {
+        "offset": { "x": 0, "y": 0, "z": 0 },
+        "rotation": { "yaw": 0, "pitch": 0, "roll": 0 },
+        "lensShift": { "x": 0, "y": 0 },
+        "fovScale": 1
+      }
+    },
+    {
+      "id": "proj-2",
+      "mount": "corner-2",
+      "adjust": {
+        "offset": { "x": 0, "y": 0, "z": 0 },
+        "rotation": { "yaw": 0, "pitch": 0, "roll": 0 },
+        "lensShift": { "x": 0, "y": 0 },
+        "fovScale": 1
+      }
+    },
+    {
+      "id": "proj-3",
+      "mount": "corner-4",
+      "adjust": {
+        "offset": { "x": 0, "y": 0, "z": 0 },
+        "rotation": { "yaw": 0, "pitch": 0, "roll": 0 },
+        "lensShift": { "x": 0, "y": 0 },
+        "fovScale": 1
+      }
+    }
+  ]
+}

@@ -4,6 +4,8 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import Stats from 'stats.js';
 import { createRoofGeometry, ROOF_RADIUS, ROOF_APEX_HEIGHT } from './roof.js';
 import { createWaterGeometry } from './waterSurface.js';
+import { loadProjectionConfig, resolveProjectors, projectorFovDegrees } from './projection.js';
+import { applySavedCalibration, createCalibrationUI, createRoofWireframe, createShowCalibrationPanel } from './calibration.js';
 
 const stats = new Stats();
 stats.showPanel(0);
@@ -19,6 +21,11 @@ const width = canvas.width;
 const height = canvas.height;
 
 console.log(`${width} x ${height}`)
+
+// Set by electron/preload.js in a show-mode projector window; absent (undefined) for a plain
+// browser tab or the Electron "monitor" window, both of which get the full dev experience below.
+const showContext = window.showContext;
+const isShowMode = showContext?.mode === 'show';
 
 
 
@@ -79,12 +86,17 @@ let axis = new THREE.Vector3( );
 // inspected; 0-3 pick what the Debug overlay shows on screen (see keydown listener below).
 let paused = false;
 let debugView = 0;
-const debugViewNames = ['scene', 'water heightfield', 'environment map', 'caustics', 'causticsDebug'];
+const debugViewNames = ['scene', 'water heightfield', 'environment map', 'caustics', 'causticsDebug', 'projection preview', 'projector output', 'projector calibration'];
 window.addEventListener('keydown', (event) => {
   if (event.key === ' ') {
     paused = !paused;
     console.log(paused ? 'paused' : 'resumed');
-  } else if (event.key >= '0' && event.key <= '4') {
+    return;
+  }
+  if (event.key < '0' || event.key > '9') return;
+  if (isShowMode) {
+    showCalibrationPanel?.toggle();
+  } else if (event.key <= '7') {
     debugView = parseInt(event.key, 10);
     console.log('debug view:', debugViewNames[debugView]);
   }
@@ -1006,6 +1018,11 @@ class Debug {
 
 }
 
+// Projector output renders only the roof (the one surface that physically exists) on black;
+// reuses environment's material/caustics uniforms via a separate Mesh so it can have its own scene.
+const projectionScene = new THREE.Scene();
+projectionScene.background = black;
+
 const waterTest = new WaterTest();
 const waterSimulation = new WaterSimulation();
 
@@ -1055,13 +1072,14 @@ function shiftWaterColour(col){
 }
 
 
-// Main rendering loop
-function animate() {
-  stats.begin();
+// Advances water/caustics/moving-geometry state one tick - shared by both the dev render loop and
+// the lean show-mode loop, since both need the same underlying simulation regardless of what (or
+// how much) they actually render afterward.
+function updateSimulation() {
+  if (paused) return;
 
-  if (!paused) {
-    // shark.translate(0.001, 0, 0);
-    movingGeometries.forEach(function(obj){
+  // shark.translate(0.001, 0, 0);
+  movingGeometries.forEach(function(obj){
       obj.fraction += obj.increment
       if (obj.fraction > 1) {
         obj.fraction = 0
@@ -1134,7 +1152,12 @@ function animate() {
 
       clock.start();
     }
-  }
+}
+
+// Main rendering loop (dev mode / monitor window): full scene, orbit camera, all debug views.
+function animate() {
+  stats.begin();
+  updateSimulation();
 
   // Render everything but the refractive water
   renderer.setRenderTarget(temporaryRenderTarget);
@@ -1162,6 +1185,52 @@ function animate() {
     if (debugTexture) debug.draw(renderer, debugTexture, debugMode);
   }
 
+  // Preview of the actual projector output: just the roof, lit by the caustics, on black - no
+  // skybox/water/orbit-scene clutter, since that's the only surface that physically exists.
+  if (debugView === 5) {
+    renderer.setRenderTarget(null);
+    renderer.setClearColor(black, 1);
+    renderer.clear();
+    renderer.render(projectionScene, camera);
+  }
+
+  // Real projector cameras, one viewport each, side by side. This single-window layout is a dev
+  // stand-in for N real display outputs; once that exists, these same per-projector resolutions
+  // drive real OS-level window/display placement instead of a scaled-to-fit preview.
+  if (debugView === 6 && projectors.length) {
+    renderer.setRenderTarget(null);
+    renderer.setScissorTest(true);
+    // Sized by each projector's actual aspect ratio (not an equal-thirds split, which is only
+    // coincidentally correct if every projector shares the same resolution with no gaps).
+    const totalAspect = projectors.reduce((sum, p) => sum + p.resolution[0] / p.resolution[1], 0);
+    let x = 0;
+    projectors.forEach((projector) => {
+      const w = Math.round(width * (projector.resolution[0] / projector.resolution[1]) / totalAspect);
+      renderer.setViewport(x, 0, w, height);
+      renderer.setScissor(x, 0, w, height);
+      renderer.setClearColor(black, 1);
+      renderer.clear();
+      if (calibrationState.enabled[projector.id] !== false) {
+        renderer.render(projectionScene, projector.camera);
+      }
+      x += w;
+    });
+    renderer.setScissorTest(false);
+    renderer.setViewport(0, 0, width, height);
+  }
+
+  // Single projector, full window: what actually gets sent to that projector's output while
+  // aligning it against the real roof (see calibration.js's lil-gui panel for the active pick).
+  if (debugView === 7) {
+    const activeProjector = projectors.find((p) => p.id === calibrationState.active);
+    if (activeProjector) {
+      renderer.setRenderTarget(null);
+      renderer.setClearColor(black, 1);
+      renderer.clear();
+      renderer.render(projectionScene, activeProjector.camera);
+    }
+  }
+
   controls.update();
 
   stats.end();
@@ -1169,6 +1238,22 @@ function animate() {
 
 
   window.requestAnimationFrame(animate);
+}
+
+// Show mode: one window per physical projector, rendering only that projector's camera fullscreen
+// against projectionScene (roof on black). No orbit scene, no debug views, no multi-viewport pass.
+function animateShow() {
+  updateSimulation();
+
+  const myProjector = projectors.find((p) => p.id === showContext.projectorId);
+  if (myProjector) {
+    renderer.setRenderTarget(null);
+    renderer.setClearColor(black, 1);
+    renderer.clear();
+    renderer.render(projectionScene, myProjector.camera);
+  }
+
+  window.requestAnimationFrame(animateShow);
 }
 
 function onMouseMove(event) {
@@ -1209,6 +1294,26 @@ function waveGen(x, y, radius, strength, interval, variance) {
   wave()
 }
 
+// Projector poses live in the real-world apex-up frame; the projection render path lands next.
+let projectionConfig;
+let projectors = [];
+// Default until the calibration UI exists, so the debugView 6/7 branches are harmless before load.
+let calibrationState = { active: null, enabled: {} };
+// Show-mode-only: the single-projector overlay toggled by any digit key (see keydown listener above).
+let showCalibrationPanel;
+const projectionLoaded = loadProjectionConfig().then((config) => {
+  projectionConfig = applySavedCalibration(config);
+  projectors = resolveProjectors(config);
+  for (const projector of projectors) {
+    const fov = projectorFovDegrees(projector);
+    console.log(
+      `${projector.id} @ ${projector.mount}`,
+      `pos(sim) ${projector.camera.position.toArray().map((v) => v.toFixed(3)).join(', ')}`,
+      `fov ${fov.horizontal.toFixed(1)} x ${fov.vertical.toFixed(1)} deg`,
+    );
+  }
+});
+
 const loaded = [
   waterTest.loaded,
   waterSimulation.loaded,
@@ -1223,6 +1328,7 @@ const loaded = [
   plantLoaded,
   boatLoaded,
   boat2Loaded,
+  projectionLoaded,
 ];
 
 Promise.all(loaded).then(() => {
@@ -1246,6 +1352,20 @@ Promise.all(loaded).then(() => {
   environment.addTo(scene);
   scene.add(water.mesh);
   // scene.add(waterTest.mesh)
+
+  projectionScene.add(new THREE.Mesh(roofGeometry, environment._material));
+
+  const roofWireframe = createRoofWireframe(roofGeometry);
+  projectionScene.add(roofWireframe);
+  if (isShowMode) {
+    showCalibrationPanel = createShowCalibrationPanel(projectionConfig, showContext.projectorId, roofWireframe, (resolved) => {
+      projectors = resolved;
+    });
+  } else {
+    calibrationState = createCalibrationUI(projectionConfig, roofWireframe, (resolved) => {
+      projectors = resolved;
+    }).state;
+  }
 
 
 
@@ -1287,5 +1407,9 @@ Promise.all(loaded).then(() => {
   //     0.3)
   // }, 4100)
 
-  animate();
+  if (isShowMode) {
+    animateShow();
+  } else {
+    animate();
+  }
 });
