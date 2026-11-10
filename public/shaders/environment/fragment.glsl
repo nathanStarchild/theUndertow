@@ -1,8 +1,16 @@
 uniform sampler2D caustics;
 uniform vec3 underwaterColor;
 
+// Fraction (0 = off, up to ~0.4) of this projector's half-width feathered at its left/right edge,
+// tuned per-projector in the calibration panel so each overlap band can be set independently and
+// narrowed to land on a crease. Left here means clip-space x = -1 (not screen left after any roll).
+uniform float blendLeft;
+uniform float blendRight;
+
 varying float lightIntensity;
 varying vec3 lightPosition;
+varying float vClipX;
+varying float vClipW;
 
 // Sloped roof panels need a much looser tolerance than the original flat floor: the caustics
 // ray-march samples the receiving surface's depth at a slightly shifted xy each step, which on
@@ -29,6 +37,17 @@ float blur(sampler2D image, vec2 uv, vec2 resolution, vec2 direction) {
   intensity += texture2D(image, uv + (off2 / resolution)).x * 0.0702702703;
   intensity += texture2D(image, uv - (off2 / resolution)).x * 0.0702702703;
   return intensity;
+}
+
+// Multiplicative alpha ramp (1 in the exclusive zone, falling to 0 at the true frustum edge) so
+// that, when two projectors' beams physically overlap on the roof, their masks sum back to 1 and
+// the combined brightness matches the rest of the image. A blend fraction of 0 disables that edge
+// entirely (full intensity all the way out), which is also what every non-show render path gets
+// by leaving these uniforms at their default.
+float edgeBlend(float ndcX, float left, float right) {
+  float leftMask = left > 0.0 ? smoothstep(-1.0, -1.0 + left, ndcX) : 1.0;
+  float rightMask = right > 0.0 ? smoothstep(1.0, 1.0 - right, ndcX) : 1.0;
+  return leftMask * rightMask;
 }
 
 void main() {
@@ -59,5 +78,9 @@ void main() {
     computedLightIntensity += causticsIntensity * smoothstep(0., 1., lightIntensity);;
   }
 
-  gl_FragColor = vec4(underwaterColor * computedLightIntensity, 1.);
+  // Multiplying linear-space color here (before Three.js's output sRGB transfer, which is applied
+  // after this shader runs) is what keeps the blend additive-correct; doing it post-encode would
+  // show as a visible bright/dark band at the seam instead of a seamless ramp.
+  float blend = edgeBlend(vClipX / vClipW, blendLeft, blendRight);
+  gl_FragColor = vec4(underwaterColor * computedLightIntensity * blend, 1.);
 }

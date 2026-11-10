@@ -327,12 +327,40 @@ genuinely describes which hex corner each one sits at - only the display-facing 
 
 ---
 
-## 7. Edge blending (once ≥2 projectors are aligned)
+## 7. Edge blending (once ≥2 projectors are aligned) — DONE
 
 - Feathered alpha ramp across each projector's overlap band so summed intensity stays constant.
 - **Blend in linear light, not sRGB**, or the seam shows as a bright/dark band.
 - Projectors can't produce true black, so overlap regions have a raised black floor — keep overlap
   bands narrow and, where possible, aligned to creases.
+
+### Implementation
+
+- Each projector's `adjust` block gains `blendLeft`/`blendRight` (0..~0.4, fraction of its own
+  clip-space half-width), resolved by `projection.js` into the projector object alongside the
+  camera. `0` means that edge is a hard cutoff (no feather) - the default for every projector and
+  every non-show render path.
+- `public/shaders/environment/vertex.glsl` passes the fragment's clip-space `x`/`w` through as
+  varyings; `fragment.glsl`'s `edgeBlend()` turns that into a `smoothstep` ramp from `1` in the
+  exclusive zone down to `0` at the true frustum edge, multiplied straight into the linear-space
+  color *before* Three.js's output sRGB transfer runs - satisfying "blend in linear light" without
+  a separate post-process pass.
+- `Environment.setBlend(left, right)` sets the two uniforms; since `environment._material` is one
+  shared instance rendered once per projector camera in a loop, it's called immediately before
+  each `renderer.render(projectionScene, projector.camera)` and reset to `(0, 0)` after the loop -
+  in `animateShow()` (show mode), debug view 6 (multi-viewport dev preview), and debug view 7
+  (single active projector), so all three give a consistent preview of what blending will look
+  like before it's ever run on real hardware.
+- lil-gui gets a new "edge blend" folder per projector (next to lens shift), persisted and
+  reset-to-defaults exactly like the other adjust fields - tune by eye against the real roof seam,
+  independently per edge, same manual-nudge workflow as the rest of calibration.
+- Left/right refer to *that projector's own* clip-space edges (`x = -1`/`x = +1`), not screen-left
+  /screen-right after any roll adjustment - matches how commercial blending tools expose "edge
+  blend %" per output.
+- Not attempted: automatically computing overlap width from the idealized geometry. Real overlap
+  depends on the as-built, as-calibrated poses, not the design values, so independent manual
+  sliders per edge (narrowed to land on a crease, per the note above) are the deliberate choice
+  here, consistent with Stage 1 calibration's manual-nudge approach rather than a cold solve.
 
 ---
 
@@ -347,12 +375,15 @@ genuinely describes which hex corner each one sits at - only the display-facing 
 6. ~~**Phase 5 stage 1** — lil-gui adjustment + wireframe overlay.~~ **Done** (`calibration.js`,
    debug view 7). Get **one** projector perfect on the real roof before adding the second; nearly
    every hard problem shows up at n=1.
-7. ~~**Phase 6** — physical output.~~ **Done**: Electron app, settings window (projector count +
-   monitor toggle), one window per display, `index.js` split into dev (`animate`) vs. show
-   (`animateShow`) paths, per-projector reset button, ids renumbered to `proj-1..N`.
-   ← *next: run `npm run electron` against the real OS display setup and try phase 5 stage 1 for
-   real*
-8. **Phase 7** — blending.
+7. ~~**Phase 6** — physical output.~~ **Done**: Electron app, settings window (per-display role
+   assignment: `Unused`/`Monitor`/`proj-N`), one spanning window across all assigned projector
+   displays (single sim, viewport-per-region) plus one dev window per monitor-assigned display,
+   `index.js` split into dev (`animate`) vs. show (`animateShow`) paths, per-projector reset
+   button, ids renumbered to `proj-1..N`.
+8. ~~**Phase 7** — blending.~~ **Done**: per-projector `blendLeft`/`blendRight` sliders, feathered
+   in linear light in the environment shader, previewed in debug views 6/7 and show mode alike.
+   ← *next: run on the real yurt - Stage 1 calibration for all three projectors, then tune blend
+   widths against the actual overlap*
 9. Show hardening — later, out of scope here.
 
 ---

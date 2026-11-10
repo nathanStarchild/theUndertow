@@ -6,6 +6,11 @@ uniform mat4 lightViewMatrix;
 
 varying float lightIntensity;
 varying vec3 lightPosition;
+// Clip-space x (pre-perspective-divide) of this fragment from the *current* camera, used by the
+// fragment shader to feather this projector's own left/right edges for blending (see blendLeft/
+// blendRight there). Only meaningful when rendering projectionScene from a projector camera.
+varying float vClipX;
+varying float vClipW;
 
 
 void main(void){
@@ -17,5 +22,8 @@ void main(void){
   lightPosition = 0.5 + lightRelativePosition.xyz / lightRelativePosition.w * 0.5;
 
   // The position of the vertex
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
+  vec4 clipPosition = projectionMatrix * modelViewMatrix * vec4(position, 1.);
+  vClipX = clipPosition.x;
+  vClipW = clipPosition.w;
+  gl_Position = clipPosition;
 }

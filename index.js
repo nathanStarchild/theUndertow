@@ -233,7 +233,7 @@ const sharkLoaded = new Promise((resolve) => {
     sharkGeometry.rotateX(-Math.PI / 2.);
     // sharkGeometry.rotateZ(-Math.PI / 2.);
     // Water now fills upward from the eaves (z=0) to the apex (z=1.2); keep the shark mid-water.
-    sharkGeometry.translate(0, 0, -0.1);
+    sharkGeometry.translate(0, 0, -0.05);
 
     // const sharkPath = new THREE.CurvePath();
 
@@ -291,9 +291,9 @@ const boatLoaded = new Promise((resolve) => {
     boatGeometry = boatGeometry.children[0].geometry;
     boatGeometry.computeVertexNormals();
     boatGeometry.scale(0.0015, 0.0015, 0.0015);
-    boatGeometry.rotateX(-Math.PI);
+    // boatGeometry.rotateX(-Math.PI);
     boatGeometry.rotateZ(Math.PI / 2.);
-    boatGeometry.translate(0, 0, -0.2);
+    boatGeometry.translate(0, 0, -0.02);
 
     // const sharkPath = new THREE.CurvePath();
 
@@ -350,10 +350,10 @@ const boat2Loaded = new Promise((resolve) => {
     boatGeometry = boatGeometry.children[0].geometry;
     boatGeometry.computeVertexNormals();
     boatGeometry.scale(0.00075, 0.00075, 0.001);
-    boatGeometry.rotateZ(Math.PI / 2.);
+    boatGeometry.rotateZ(-Math.PI / 2.);
     boatGeometry.rotateX(-Math.PI/ 2.);
     boatGeometry.rotateY(-Math.PI/ 2.);
-    boatGeometry.translate(0.0, 0, 0.15);
+    boatGeometry.translate(0.0, 0, -0.1);
 
     // const sharkPath = new THREE.CurvePath();
 
@@ -361,15 +361,54 @@ const boat2Loaded = new Promise((resolve) => {
     const boat1Points = [
       new THREE.Vector3(  0.5, 0.2, 0.00 ),
       new THREE.Vector3(  -1.5, 0, 0.0 ),
-      new THREE.Vector3( -0.2, 1.2, 0.0 ),
-      new THREE.Vector3( -0.2, 1.2, 0.0 ),
-      new THREE.Vector3( -0.2, 1.2, 0.0 ),
-      new THREE.Vector3( -0.2, 1.2, 0.0 ),
-      new THREE.Vector3( -0.2, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
+      new THREE.Vector3( -0.5, 1.2, 0.0 ),
       new THREE.Vector3( -0.2, 1.2, 0.0 ),
       new THREE.Vector3( -0.4, 1, 0.0 ),
       new THREE.Vector3( -0.8, 0.4, 0.0 ),
       new THREE.Vector3( -0.85, -0.4, 0.0 ),
+      new THREE.Vector3( -0.8, -1.4, 0.0 ),
+      new THREE.Vector3( -0.8, -1.4, 0.0 ),
+      new THREE.Vector3( -0.8, -1.4, 0.0 ),
+      new THREE.Vector3( -0.8, -1.4, 0.0 ),
+      new THREE.Vector3( -0.8, -1.4, 0.0 ),
+      new THREE.Vector3( -0.8, -1.4, 0.0 ),
+      new THREE.Vector3( -0.8, -1.4, 0.0 ),
+      new THREE.Vector3( -0.8, -1.4, 0.0 ),
+      new THREE.Vector3( -0.8, -1.4, 0.0 ),
+      new THREE.Vector3( -0.8, -1.4, 0.0 ),
+      new THREE.Vector3( -0.8, -1.4, 0.0 ),
+      new THREE.Vector3( -0.8, -1.4, 0.0 ),
+      new THREE.Vector3( -0.8, -1.4, 0.0 ),
+      new THREE.Vector3( -0.8, -1.4, 0.0 ),
+      new THREE.Vector3( -0.8, -1.4, 0.0 ),
       new THREE.Vector3( -0.8, -1.4, 0.0 ),
       new THREE.Vector3( -0.8, -1.4, 0.0 ),
       new THREE.Vector3( -0.8, -1.4, 0.0 ),
@@ -402,6 +441,34 @@ const boat2Loaded = new Promise((resolve) => {
       new THREE.Vector3( 1.1, 1.3, 0.0 ),
       new THREE.Vector3( 1.1, 1.3, 0.0 ),
       new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.8, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.8, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
+      new THREE.Vector3( 1.1, 1.3, 0.0 ),
       new THREE.Vector3( 1.8, 1.3, 0.0 ),
     ]
 
@@ -423,7 +490,7 @@ const boat2Loaded = new Promise((resolve) => {
       tangent: 0,
       radians: 0,
       fraction: 0,
-      increment: 0.00015,
+      increment: 0.0001,
       hasWake: true,
       wakeCounter: 0,
     }
@@ -912,7 +979,12 @@ class Environment {
           lightViewMatrix: { value: lightCamera.matrixWorldInverse  },
           underwaterColor: {value: underwaterColour},
           // Caustics render target is always waterSize x waterSize; keep the PCF blur in sync with it.
-          causticsResolution: { value: new THREE.Vector2(renderSize, renderSize) }
+          causticsResolution: { value: new THREE.Vector2(renderSize, renderSize) },
+          // Edge-blend feather fractions for the projector currently being rendered; see
+          // setBlend() and public/shaders/environment/fragment.glsl's edgeBlend(). 0 = no feather,
+          // which is what every non-show render path leaves these at.
+          blendLeft: { value: 0 },
+          blendRight: { value: 0 },
         },
         vertexShader: vertexShader,
         fragmentShader: fragmentShader,
@@ -961,6 +1033,14 @@ class Environment {
 
   updateUnderwaterColour(underwaterColor) {
     this._material.uniforms['underwaterColor'].value = underwaterColor
+  }
+
+  // Per-projector edge-blend feather (fraction of half-width, 0..~0.4), applied to whichever
+  // camera renders next - set this right before each projector's render() call in a multi-camera
+  // loop (debug view 6, animateShow), not once up front.
+  setBlend(left, right) {
+    this._material.uniforms['blendLeft'].value = left;
+    this._material.uniforms['blendRight'].value = right;
   }
 
   addTo(scene) {
@@ -1113,7 +1193,7 @@ function updateSimulation() {
           renderer,
           obj.newPosition.x/sclx,
           obj.newPosition.y/sclx,
-          0.01,
+          0.03,
           -0.02
         )
       }
@@ -1211,12 +1291,14 @@ function animate() {
       renderer.setClearColor(black, 1);
       renderer.clear();
       if (calibrationState.enabled[projector.id] !== false) {
+        environment.setBlend(projector.blendLeft ?? 0, projector.blendRight ?? 0);
         renderer.render(projectionScene, projector.camera);
       }
       x += w;
     });
     renderer.setScissorTest(false);
     renderer.setViewport(0, 0, width, height);
+    environment.setBlend(0, 0);
   }
 
   // Single projector, full window: what actually gets sent to that projector's output while
@@ -1227,7 +1309,9 @@ function animate() {
       renderer.setRenderTarget(null);
       renderer.setClearColor(black, 1);
       renderer.clear();
+      environment.setBlend(activeProjector.blendLeft ?? 0, activeProjector.blendRight ?? 0);
       renderer.render(projectionScene, activeProjector.camera);
+      environment.setBlend(0, 0);
     }
   }
 
@@ -1258,10 +1342,12 @@ function animateShow() {
     renderer.setViewport(region.rect.x, viewportY, region.rect.width, region.rect.height);
     renderer.setScissor(region.rect.x, viewportY, region.rect.width, region.rect.height);
     renderer.clear();
+    environment.setBlend(projector.blendLeft ?? 0, projector.blendRight ?? 0);
     renderer.render(projectionScene, projector.camera);
   }
   renderer.setScissorTest(false);
   renderer.setViewport(0, 0, width, height);
+  environment.setBlend(0, 0);
 
   window.requestAnimationFrame(animateShow);
 }
@@ -1344,10 +1430,10 @@ const loaded = [
 Promise.all(loaded).then(() => {
   // const envGeometries = [roofGeometry, rock1, rock2];
   // const envGeometries = [floorGeometry];
-  const envGeometries = [roofGeometry, rock1, rock2];
+  const envGeometries = [roofGeometry];
 
-  // movingGeometries = [shark, boat1, boat2]
-  movingGeometries = [shark]
+  movingGeometries = [shark, boat1, boat2]
+  // movingGeometries = [shark]
 
   environmentMap.setGeometries(envGeometries);
   environment.setGeometries(envGeometries);
@@ -1404,10 +1490,11 @@ Promise.all(loaded).then(() => {
   //   );
   // }
 
-  waveGen(-0.7, -0.3, 0.05, 0.5, 300000, 0.02)
-  waveGen(-0.7, 0.3, 0.01, 0.05, 120000, 0.03)
-  waveGen(0.1, 0.6, 0.01, 0.1, 100000, 0.05)
-  waveGen(-0.2, -0.6, 0.01, 0.5, 4200000, 0.08)
+  waveGen(-0.9, -0.3, 0.05, 0.04, 3000, 0.02)
+  // waveGen(-0.7, -0.3, 0.05, 0.5, 300000, 0.02)
+  waveGen(-0.7, 0.3, 0.03, 0.05, 120000, 0.03)
+  waveGen(0.1, 0.6, 0.05, 0.1, 100000, 0.05)
+  waveGen(-0.2, -0.6, 0.1, 0.5, 4200000, 0.08)
 
 
   // let waveTimer2 = setInterval(function(){

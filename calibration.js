@@ -26,6 +26,11 @@ function persist(config) {
 export function applySavedCalibration(config) {
   const saved = loadSaved();
   for (const projector of config.projectors) {
+    // Older configs/imports predate edge blending; default both edges off rather than leaving the
+    // property missing, since lil-gui needs it defined to bind a slider to it.
+    projector.adjust.blendLeft ??= 0;
+    projector.adjust.blendRight ??= 0;
+
     const entry = saved[projector.id];
     if (!entry) continue;
     if (entry.mount) projector.mount = entry.mount;
@@ -85,6 +90,8 @@ function resetAdjust(adjust) {
   adjust.lensShift.x = 0;
   adjust.lensShift.y = 0;
   adjust.fovScale = 1;
+  adjust.blendLeft = 0;
+  adjust.blendRight = 0;
 }
 
 // Shared slider set for one projector, used by both the full multi-projector panel and the
@@ -108,6 +115,13 @@ function addProjectorControls(container, projector, rebuild, refreshControllers)
   lensShift.add(adjust.lensShift, 'y', -0.5, 0.5, 0.005).onChange(rebuild);
 
   container.add(adjust, 'fovScale', 0.8, 1.2, 0.005).onChange(rebuild);
+
+  // Feathered overlap with whichever neighbor shares this edge - tune by eye against the real
+  // roof seam (see Phase 7 in ROADMAP.md); 0 disables that edge (no feather, hard cutoff at the
+  // frustum boundary). "left"/"right" are this projector's own clip-space edges, not screen sides.
+  const blend = container.addFolder('edge blend');
+  blend.add(adjust, 'blendLeft', 0, 0.4, 0.005).onChange(rebuild);
+  blend.add(adjust, 'blendRight', 0, 0.4, 0.005).onChange(rebuild);
 
   container.add({ fn: () => {
     resetAdjust(adjust);

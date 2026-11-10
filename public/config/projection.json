@@ -19,7 +19,9 @@
         "offset": { "x": 0, "y": 0, "z": 0 },
         "rotation": { "yaw": 0, "pitch": 0, "roll": 0 },
         "lensShift": { "x": 0, "y": 0 },
-        "fovScale": 1
+        "fovScale": 1,
+        "blendLeft": 0,
+        "blendRight": 0
       }
     },
     {
@@ -29,7 +31,9 @@
         "offset": { "x": 0, "y": 0, "z": 0 },
         "rotation": { "yaw": 0, "pitch": 0, "roll": 0 },
         "lensShift": { "x": 0, "y": 0 },
-        "fovScale": 1
+        "fovScale": 1,
+        "blendLeft": 0,
+        "blendRight": 0
       }
     },
     {
@@ -39,7 +43,9 @@
         "offset": { "x": 0, "y": 0, "z": 0 },
         "rotation": { "yaw": 0, "pitch": 0, "roll": 0 },
         "lensShift": { "x": 0, "y": 0 },
-        "fovScale": 1
+        "fovScale": 1,
+        "blendLeft": 0,
+        "blendRight": 0
       }
     }
   ]
