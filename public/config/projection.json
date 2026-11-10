@@ -11,6 +11,10 @@
     "throwRatio": 0.8,
     "resolution": [1920, 1080]
   },
+  "blend": {
+    "feather": 0.15,
+    "quality": 2
+  },
   "projectors": [
     {
       "id": "proj-1",
@@ -19,9 +23,7 @@
         "offset": { "x": 0, "y": 0, "z": 0 },
         "rotation": { "yaw": 0, "pitch": 0, "roll": 0 },
         "lensShift": { "x": 0, "y": 0 },
-        "fovScale": 1,
-        "blendLeft": 0,
-        "blendRight": 0
+        "fovScale": 1
       }
     },
     {
@@ -31,9 +33,7 @@
         "offset": { "x": 0, "y": 0, "z": 0 },
         "rotation": { "yaw": 0, "pitch": 0, "roll": 0 },
         "lensShift": { "x": 0, "y": 0 },
-        "fovScale": 1,
-        "blendLeft": 0,
-        "blendRight": 0
+        "fovScale": 1
       }
     },
     {
@@ -43,9 +43,7 @@
         "offset": { "x": 0, "y": 0, "z": 0 },
         "rotation": { "yaw": 0, "pitch": 0, "roll": 0 },
         "lensShift": { "x": 0, "y": 0 },
-        "fovScale": 1,
-        "blendLeft": 0,
-        "blendRight": 0
+        "fovScale": 1
       }
     }
   ]

@@ -6,11 +6,12 @@ uniform mat4 lightViewMatrix;
 
 varying float lightIntensity;
 varying vec3 lightPosition;
-// Clip-space x (pre-perspective-divide) of this fragment from the *current* camera, used by the
-// fragment shader to feather this projector's own left/right edges for blending (see blendLeft/
-// blendRight there). Only meaningful when rendering projectionScene from a projector camera.
-varying float vClipX;
-varying float vClipW;
+// World-space position/normal of this fragment, used by the fragment shader's edge blending to
+// work out which *other* projectors also cover this exact point on the roof (see blendWeight()).
+// Blending has to be decided in shared world space, not in one projector's screen space, because
+// how many projectors overlap varies across the surface - three of them meet near the apex.
+varying vec3 vWorldPosition;
+varying vec3 vWorldNormal;
 
 
 void main(void){
@@ -21,9 +22,13 @@ void main(void){
   vec4 lightRelativePosition = lightProjectionMatrix * lightViewMatrix * modelMatrix * vec4(position, 1.);
   lightPosition = 0.5 + lightRelativePosition.xyz / lightRelativePosition.w * 0.5;
 
+  vec4 worldPosition = modelMatrix * vec4(position, 1.);
+  vWorldPosition = worldPosition.xyz;
+  // Normals are winding-derived (computeVertexNormals) and back faces are culled, so for whichever
+  // projector is currently rendering this already points back towards it - which is what makes the
+  // facing test in blendWeight() meaningful when applied to the *other* projectors.
+  vWorldNormal = mat3(modelMatrix) * normal;
+
   // The position of the vertex
-  vec4 clipPosition = projectionMatrix * modelViewMatrix * vec4(position, 1.);
-  vClipX = clipPosition.x;
-  vClipW = clipPosition.w;
-  gl_Position = clipPosition;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
 }

@@ -88,16 +88,7 @@ export function resolveProjectors(config) {
     camera.updateProjectionMatrix();
     applyLensShift(camera, adjust.lensShift);
 
-    return {
-      id: projector.id,
-      mount: projector.mount,
-      throwRatio,
-      resolution,
-      target,
-      camera,
-      blendLeft: adjust.blendLeft ?? 0,
-      blendRight: adjust.blendRight ?? 0,
-    };
+    return { id: projector.id, mount: projector.mount, throwRatio, resolution, target, camera };
   });
 }
 

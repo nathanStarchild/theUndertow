@@ -336,31 +336,70 @@ genuinely describes which hex corner each one sits at - only the display-facing 
 
 ### Implementation
 
-- Each projector's `adjust` block gains `blendLeft`/`blendRight` (0..~0.4, fraction of its own
-  clip-space half-width), resolved by `projection.js` into the projector object alongside the
-  camera. `0` means that edge is a hard cutoff (no feather) - the default for every projector and
-  every non-show render path.
-- `public/shaders/environment/vertex.glsl` passes the fragment's clip-space `x`/`w` through as
-  varyings; `fragment.glsl`'s `edgeBlend()` turns that into a `smoothstep` ramp from `1` in the
-  exclusive zone down to `0` at the true frustum edge, multiplied straight into the linear-space
-  color *before* Three.js's output sRGB transfer runs - satisfying "blend in linear light" without
-  a separate post-process pass.
-- `Environment.setBlend(left, right)` sets the two uniforms; since `environment._material` is one
-  shared instance rendered once per projector camera in a loop, it's called immediately before
-  each `renderer.render(projectionScene, projector.camera)` and reset to `(0, 0)` after the loop -
-  in `animateShow()` (show mode), debug view 6 (multi-viewport dev preview), and debug view 7
-  (single active projector), so all three give a consistent preview of what blending will look
-  like before it's ever run on real hardware.
-- lil-gui gets a new "edge blend" folder per projector (next to lens shift), persisted and
-  reset-to-defaults exactly like the other adjust fields - tune by eye against the real roof seam,
-  independently per edge, same manual-nudge workflow as the rest of calibration.
-- Left/right refer to *that projector's own* clip-space edges (`x = -1`/`x = +1`), not screen-left
-  /screen-right after any roll adjustment - matches how commercial blending tools expose "edge
-  blend %" per output.
-- Not attempted: automatically computing overlap width from the idealized geometry. Real overlap
-  depends on the as-built, as-calibrated poses, not the design values, so independent manual
-  sliders per edge (narrowed to land on a crease, per the note above) are the deliberate choice
-  here, consistent with Stage 1 calibration's manual-nudge approach rather than a cold solve.
+The overlap on this roof is **not** a left/right band, which is the trap here. The 6 panels all
+converge on the apex, so coverage is **3-deep near the apex**, 2-deep along a crease lower down,
+and 1-deep in the middle of a panel. A per-projector screen-space edge ramp (feather the left and
+right of each image) cannot represent that: it assumes exactly two projectors meet at any seam,
+and it has no way to know that a point near the apex is lit by all three.
+
+So blending is computed from the **geometry**, in shared world space, not per-projector screen
+space:
+
+- `vertex.glsl` passes `vWorldPosition` / `vWorldNormal` through.
+- `fragment.glsl` is given the whole projector set — `blendViewProjection[]` (world→clip) and
+  `blendPosition[]` (eye position) — and for each fragment tests *every* projector: is this point
+  inside that projector's frustum, and is the panel facing it? Each covering projector gets a
+  weight that falls off smoothly towards its frustum edges (`blendFeather`, in NDC units).
+- The weight actually used is `self / sum(all covering projectors)` — a **partition of unity**. By
+  construction the weights at any point sum to exactly 1, so the surface brightness matches
+  everywhere regardless of whether 1, 2 or 3 projectors land there. The 3-way apex region resolves
+  to ⅓ each automatically; nothing special-cases it.
+- A point only one projector covers gets weight 1 — full brightness, no dimming, even right at
+  that projector's frustum edge. Only genuinely overlapped regions are attenuated.
+- The facing test matters: a panel on the far side of the pyramid can sit inside another
+  projector's frustum while facing away from it. Counting it would wrongly dim the projectors that
+  really do cover the point. Back faces are culled, and `computeVertexNormals()` makes normals
+  winding-consistent, so `vWorldNormal` already points back at whichever projector is rendering —
+  which is what makes `dot(n, projector - fragment) > 0` a valid test for the *other* projectors.
+- Applied to the linear-space colour before Three.js's output sRGB transfer, satisfying "blend in
+  linear light" without a separate post-process pass.
+- One global **blend feather** slider in lil-gui (not per-projector, not per-edge): since the
+  shader normalises across whatever actually overlaps, this only controls how soft the crossfade
+  is. `0` disables blending. Persisted with the rest of the calibration (storage format is
+  versioned, so existing saved per-projector calibration still loads).
+- `MAX_BLEND_PROJECTORS` is 6 in both the shader and `index.js`, covering the 6-projector fallback
+  from §1 without a code change.
+
+### Weighting within an overlap: incidence preference
+
+Splitting an overlap evenly between the projectors that cover it is not automatically right. A
+projector hitting the surface at a grazing angle smears its pixels over far more area, so it
+contributes a blurrier image and is more sensitive to registration error than one looking at the
+same point nearly face-on.
+
+So each projector's weight is additionally multiplied by `cos(incidence)^blendQuality`:
+
+- `blendQuality = 0` → every covering projector weighted equally (the plain partition of unity).
+- Higher values → progressively hand the overlap to whichever projector faces the surface most
+  directly, approaching winner-take-all.
+- Default `2`, tunable live from the same lil-gui "blending" folder.
+
+A useful side effect: incidence flips across a crease (the normal is discontinuous there), so
+preferring the more face-on projector naturally drags the crossfade **onto the creases** — the
+placement §1 wants, arrived at from the geometry rather than by hoping frustum edges line up.
+
+Tradeoff to watch on the real roof: a strong preference makes the transition sharper, which hides
+misregistration *less* well. If alignment residual turns out to be visible at the creases, lower
+`blendQuality` (softer, wider crossfade) rather than fighting it with the feather width.
+
+Deliberately not modelled: full radiometric normalisation (weighting by `cos θ / d²` so the summed
+*surface luminance* is constant rather than the summed image values). It would need the panels'
+actual reflectance, and foil-faced hexayurt panels are likely far from Lambertian — worth
+measuring in situ before assuming any model. The roof also has inherent brightness variation from
+geometry that nothing here corrects.
+
+Still to verify on hardware: the feather width and incidence exponent that actually hide the
+seams, and whether the raised black floor in the 3-deep apex region is noticeable in the room.
 
 ---
 
@@ -380,10 +419,12 @@ genuinely describes which hex corner each one sits at - only the display-facing 
    displays (single sim, viewport-per-region) plus one dev window per monitor-assigned display,
    `index.js` split into dev (`animate`) vs. show (`animateShow`) paths, per-projector reset
    button, ids renumbered to `proj-1..N`.
-8. ~~**Phase 7** — blending.~~ **Done**: per-projector `blendLeft`/`blendRight` sliders, feathered
-   in linear light in the environment shader, previewed in debug views 6/7 and show mode alike.
-   ← *next: run on the real yurt - Stage 1 calibration for all three projectors, then tune blend
-   widths against the actual overlap*
+8. ~~**Phase 7** — blending.~~ **Done**: world-space partition-of-unity blending in the environment
+   shader (handles the 3-way overlap at the apex, not just pairwise seams), weighted by incidence
+   angle so the more face-on projector wins an overlap, with feather + incidence sliders.
+   Previewed in debug views 6/7 and show mode alike.
+   ← *next: run on the real yurt - Stage 1 calibration for all three projectors, then tune the
+   feather width and incidence preference against the actual overlap*
 9. Show hardening — later, out of scope here.
 
 ---

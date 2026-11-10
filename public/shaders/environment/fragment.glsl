@@ -1,16 +1,30 @@
 uniform sampler2D caustics;
 uniform vec3 underwaterColor;
 
-// Fraction (0 = off, up to ~0.4) of this projector's half-width feathered at its left/right edge,
-// tuned per-projector in the calibration panel so each overlap band can be set independently and
-// narrowed to land on a crease. Left here means clip-space x = -1 (not screen left after any roll).
-uniform float blendLeft;
-uniform float blendRight;
+// Edge blending. Overlap on this roof is not a simple left/right band: the 6 panels all meet at
+// the apex, so coverage there is 3-deep while a crease near the eave is only 2-deep, and the
+// middle of a panel is 1-deep. Rather than assume a pattern, each projector is tested against
+// this fragment's actual world position and the result normalised (partition of unity), so the
+// weights across every projector that can see a point always sum to exactly 1 - whatever the
+// local overlap count happens to be. blendCount == 0 disables all of this.
+#define MAX_BLEND_PROJECTORS 6
+uniform int blendCount;
+uniform int blendSelf;
+// Falloff width, in NDC units, measured inwards from a projector's frustum edge.
+uniform float blendFeather;
+// Exponent on each projector's incidence cosine. 0 weights every covering projector equally;
+// higher values hand more of an overlap to whichever projector faces the surface most directly
+// (sharper, since a grazing projector smears its pixels over far more area), approaching
+// winner-take-all. Because incidence flips across a crease, this also pulls the crossfade onto
+// the creases, which is where seams are least visible.
+uniform float blendQuality;
+uniform mat4 blendViewProjection[MAX_BLEND_PROJECTORS];
+uniform vec3 blendPosition[MAX_BLEND_PROJECTORS];
 
 varying float lightIntensity;
 varying vec3 lightPosition;
-varying float vClipX;
-varying float vClipW;
+varying vec3 vWorldPosition;
+varying vec3 vWorldNormal;
 
 // Sloped roof panels need a much looser tolerance than the original flat floor: the caustics
 // ray-march samples the receiving surface's depth at a slightly shifted xy each step, which on
@@ -39,15 +53,43 @@ float blur(sampler2D image, vec2 uv, vec2 resolution, vec2 direction) {
   return intensity;
 }
 
-// Multiplicative alpha ramp (1 in the exclusive zone, falling to 0 at the true frustum edge) so
-// that, when two projectors' beams physically overlap on the roof, their masks sum back to 1 and
-// the combined brightness matches the rest of the image. A blend fraction of 0 disables that edge
-// entirely (full intensity all the way out), which is also what every non-show render path gets
-// by leaving these uniforms at their default.
-float edgeBlend(float ndcX, float left, float right) {
-  float leftMask = left > 0.0 ? smoothstep(-1.0, -1.0 + left, ndcX) : 1.0;
-  float rightMask = right > 0.0 ? smoothstep(1.0, 1.0 - right, ndcX) : 1.0;
-  return leftMask * rightMask;
+// Fraction of this fragment's light that the currently-rendering projector should contribute.
+// Where it is the only projector covering the point this returns 1 (no dimming at all, even
+// right at the frustum edge); where N projectors overlap, each one's share falls out of the
+// normalisation so the sum stays 1 and the surface brightness matches the non-overlapped areas.
+float blendWeight() {
+  if (blendSelf < 0 || blendCount <= 1 || blendFeather <= 0.0) return 1.0;
+
+  vec3 n = normalize(vWorldNormal);
+  float selfWeight = 0.0;
+  float total = 0.0;
+
+  for (int j = 0; j < MAX_BLEND_PROJECTORS; j++) {
+    if (j >= blendCount) break;
+
+    float w = 0.0;
+    vec4 clip = blendViewProjection[j] * vec4(vWorldPosition, 1.0);
+    if (clip.w > 0.0) {
+      vec3 ndc = clip.xyz / clip.w;
+      vec3 toProjector = blendPosition[j] - vWorldPosition;
+      float dist = length(toProjector);
+      float cosIncidence = dist > 0.0 ? dot(n, toProjector) / dist : 0.0;
+      // Inside the frustum and on the side of the panel this projector can actually light - a
+      // panel facing away from projector j is still inside its frustum, and counting it would
+      // wrongly dim the projectors that genuinely do cover the point.
+      if (all(lessThanEqual(abs(ndc), vec3(1.0))) && cosIncidence > 0.0) {
+        vec2 edgeDistance = vec2(1.0) - abs(ndc.xy);
+        w = smoothstep(0.0, blendFeather, edgeDistance.x)
+          * smoothstep(0.0, blendFeather, edgeDistance.y)
+          * pow(cosIncidence, blendQuality);
+      }
+    }
+
+    total += w;
+    if (j == blendSelf) selfWeight = w;
+  }
+
+  return total > 0.0 ? selfWeight / total : 0.0;
 }
 
 void main() {
@@ -81,6 +123,5 @@ void main() {
   // Multiplying linear-space color here (before Three.js's output sRGB transfer, which is applied
   // after this shader runs) is what keeps the blend additive-correct; doing it post-encode would
   // show as a visible bright/dark band at the seam instead of a seamless ramp.
-  float blend = edgeBlend(vClipX / vClipW, blendLeft, blendRight);
-  gl_FragColor = vec4(underwaterColor * computedLightIntensity * blend, 1.);
+  gl_FragColor = vec4(underwaterColor * computedLightIntensity * blendWeight(), 1.);
 }

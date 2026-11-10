@@ -82,6 +82,10 @@ const hexMeshSegments = 1024;
 const up = new THREE.Vector3( 0, 1, 0 );
 let axis = new THREE.Vector3( );
 
+// Must match MAX_BLEND_PROJECTORS in public/shaders/environment/fragment.glsl, since the uniform
+// array length is what sizes the declaration there.
+const MAX_BLEND_PROJECTORS = 6;
+
 // Debug controls: space bar pauses all caustics-affecting updates so a single frame can be
 // inspected; 0-3 pick what the Debug overlay shows on screen (see keydown listener below).
 let paused = false;
@@ -980,11 +984,15 @@ class Environment {
           underwaterColor: {value: underwaterColour},
           // Caustics render target is always waterSize x waterSize; keep the PCF blur in sync with it.
           causticsResolution: { value: new THREE.Vector2(renderSize, renderSize) },
-          // Edge-blend feather fractions for the projector currently being rendered; see
-          // setBlend() and public/shaders/environment/fragment.glsl's edgeBlend(). 0 = no feather,
-          // which is what every non-show render path leaves these at.
-          blendLeft: { value: 0 },
-          blendRight: { value: 0 },
+          // Edge blending; see Environment.setBlendProjectors()/setBlendSelf() below and
+          // public/shaders/environment/fragment.glsl's blendWeight(). blendCount 0 = disabled,
+          // which is what every non-projector render path (the whole dev scene) leaves it at.
+          blendCount: { value: 0 },
+          blendSelf: { value: -1 },
+          blendFeather: { value: 0 },
+          blendQuality: { value: 0 },
+          blendViewProjection: { value: Array.from({ length: MAX_BLEND_PROJECTORS }, () => new THREE.Matrix4()) },
+          blendPosition: { value: Array.from({ length: MAX_BLEND_PROJECTORS }, () => new THREE.Vector3()) },
         },
         vertexShader: vertexShader,
         fragmentShader: fragmentShader,
@@ -1035,12 +1043,30 @@ class Environment {
     this._material.uniforms['underwaterColor'].value = underwaterColor
   }
 
-  // Per-projector edge-blend feather (fraction of half-width, 0..~0.4), applied to whichever
-  // camera renders next - set this right before each projector's render() call in a multi-camera
-  // loop (debug view 6, animateShow), not once up front.
-  setBlend(left, right) {
-    this._material.uniforms['blendLeft'].value = left;
-    this._material.uniforms['blendRight'].value = right;
+  // Hands the shader the full projector set (world->clip matrix + eye position each) plus the
+  // blend settings, so each fragment can be tested against every projector rather than assuming a
+  // fixed overlap pattern. Call once per frame, before the per-projector render loop; a feather
+  // of 0 disables blending entirely.
+  setBlendProjectors(projectorList, blend) {
+    const uniforms = this._material.uniforms;
+    const count = Math.min(projectorList.length, MAX_BLEND_PROJECTORS);
+    for (let i = 0; i < count; i++) {
+      const camera = projectorList[i].camera;
+      // These cameras live outside any scene graph, so nothing else keeps their world matrices
+      // current - and all of them are needed before the first render() of the frame.
+      camera.updateMatrixWorld();
+      camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+      uniforms['blendViewProjection'].value[i].multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      uniforms['blendPosition'].value[i].setFromMatrixPosition(camera.matrixWorld);
+    }
+    uniforms['blendCount'].value = blend.feather > 0 ? count : 0;
+    uniforms['blendFeather'].value = blend.feather;
+    uniforms['blendQuality'].value = blend.quality;
+  }
+
+  // Which projector in that set is being rendered right now; -1 disables blending.
+  setBlendSelf(index) {
+    this._material.uniforms['blendSelf'].value = index;
   }
 
   addTo(scene) {
@@ -1280,38 +1306,40 @@ function animate() {
   if (debugView === 6 && projectors.length) {
     renderer.setRenderTarget(null);
     renderer.setScissorTest(true);
+    environment.setBlendProjectors(projectors, blendSettings());
     // Sized by each projector's actual aspect ratio (not an equal-thirds split, which is only
     // coincidentally correct if every projector shares the same resolution with no gaps).
     const totalAspect = projectors.reduce((sum, p) => sum + p.resolution[0] / p.resolution[1], 0);
     let x = 0;
-    projectors.forEach((projector) => {
+    projectors.forEach((projector, index) => {
       const w = Math.round(width * (projector.resolution[0] / projector.resolution[1]) / totalAspect);
       renderer.setViewport(x, 0, w, height);
       renderer.setScissor(x, 0, w, height);
       renderer.setClearColor(black, 1);
       renderer.clear();
       if (calibrationState.enabled[projector.id] !== false) {
-        environment.setBlend(projector.blendLeft ?? 0, projector.blendRight ?? 0);
+        environment.setBlendSelf(index);
         renderer.render(projectionScene, projector.camera);
       }
       x += w;
     });
     renderer.setScissorTest(false);
     renderer.setViewport(0, 0, width, height);
-    environment.setBlend(0, 0);
+    environment.setBlendSelf(-1);
   }
 
   // Single projector, full window: what actually gets sent to that projector's output while
   // aligning it against the real roof (see calibration.js's lil-gui panel for the active pick).
   if (debugView === 7) {
-    const activeProjector = projectors.find((p) => p.id === calibrationState.active);
-    if (activeProjector) {
+    const activeIndex = projectors.findIndex((p) => p.id === calibrationState.active);
+    if (activeIndex >= 0) {
       renderer.setRenderTarget(null);
       renderer.setClearColor(black, 1);
       renderer.clear();
-      environment.setBlend(activeProjector.blendLeft ?? 0, activeProjector.blendRight ?? 0);
-      renderer.render(projectionScene, activeProjector.camera);
-      environment.setBlend(0, 0);
+      environment.setBlendProjectors(projectors, blendSettings());
+      environment.setBlendSelf(activeIndex);
+      renderer.render(projectionScene, projectors[activeIndex].camera);
+      environment.setBlendSelf(-1);
     }
   }
 
@@ -1334,20 +1362,21 @@ function animateShow() {
   renderer.setRenderTarget(null);
   renderer.setScissorTest(true);
   renderer.setClearColor(black, 1);
+  environment.setBlendProjectors(projectors, blendSettings());
   for (const region of showContext.regions) {
-    const projector = projectors.find((p) => p.id === region.id);
-    if (!projector) continue;
+    const index = projectors.findIndex((p) => p.id === region.id);
+    if (index < 0) continue;
     // Electron gives region rects top-down (y=0 at screen top); WebGL viewports are bottom-up.
     const viewportY = height - region.rect.y - region.rect.height;
     renderer.setViewport(region.rect.x, viewportY, region.rect.width, region.rect.height);
     renderer.setScissor(region.rect.x, viewportY, region.rect.width, region.rect.height);
     renderer.clear();
-    environment.setBlend(projector.blendLeft ?? 0, projector.blendRight ?? 0);
-    renderer.render(projectionScene, projector.camera);
+    environment.setBlendSelf(index);
+    renderer.render(projectionScene, projectors[index].camera);
   }
   renderer.setScissorTest(false);
   renderer.setViewport(0, 0, width, height);
-  environment.setBlend(0, 0);
+  environment.setBlendSelf(-1);
 
   window.requestAnimationFrame(animateShow);
 }
@@ -1397,6 +1426,11 @@ let projectors = [];
 let calibrationState = { active: null, enabled: {} };
 // Show-mode-only: one overlay per region (keyed by projector id), toggled by the matching digit key.
 let showCalibrationPanels = {};
+// Live-read each frame so the calibration sliders take effect immediately; feather 0 disables.
+const NO_BLEND = { feather: 0, quality: 0 };
+function blendSettings() {
+  return projectionConfig?.blend ?? NO_BLEND;
+}
 const projectionLoaded = loadProjectionConfig().then((config) => {
   projectionConfig = applySavedCalibration(config);
   projectors = resolveProjectors(config);
